@@ -319,7 +319,38 @@
   .dmsg.user{background:var(--accent)}
   .dinrow input{border-radius:980px;padding:12px 16px}
   footer{font-size:12.5px;color:var(--muted);margin-top:46px}
-  @media (max-width:560px){ .glance,.peco,.ff{grid-template-columns:1fr} .wrap{padding:40px 16px 90px} }
+  @media (max-width:640px){
+    html,body{overflow-x:hidden}
+    .wrap{padding:30px 15px 80px}
+    header.brand{flex-wrap:wrap;gap:12px}
+    .brand>div{flex:1 1 auto;min-width:0}
+    .brand h1{font-size:25px}
+    .brand .sub{font-size:13px}
+    .modebadge{flex-basis:100%;margin-left:0;text-align:center}
+    .tagline{font-size:15.5px;margin:18px 0 22px}
+    .panel{padding:18px;border-radius:18px}
+    textarea{font-size:16px}
+    .row{gap:8px}
+    .row .go,.row .btn-ghost{flex:1 1 auto;text-align:center}
+    .verdict{padding:20px 18px;border-radius:18px}
+    .verdict h2{font-size:20px}
+    .verdict p.reason{font-size:15px}
+    .glance,.peco,.ff,.profile{grid-template-columns:1fr}
+    .crow>summary{flex-wrap:wrap;row-gap:6px}
+    .cmeta{margin-left:0;width:100%;text-align:left}
+    .vgk{min-width:0;display:block;margin-bottom:1px}
+    .tkbtns{flex-direction:column;align-items:stretch}
+    .tkbtns>*{width:100%;text-align:center}
+    .actionsrow .btn-mini{flex:1 1 auto;text-align:center}
+    .dinrow{flex-direction:column}
+    .dinrow .go{width:100%}
+    .mtotal .mt{font-size:20px}
+    .modal .box{padding:22px;border-radius:22px}
+    .plotcard img{height:auto}
+    .filerow{flex-wrap:wrap;row-gap:4px}
+    .filerow a{margin-left:0}
+  }
+  @media (max-width:380px){ .brand h1{font-size:22px} .verdict h2{font-size:18px} }
 </style>
 </head>
 <body>
