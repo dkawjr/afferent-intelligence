@@ -1,0 +1,487 @@
+{
+  "dataset": "VitalDB",
+  "description": "VitalDB (Vital Signs DataBase), Seoul National University Hospital. 6,388 surgical cases. Three data layers: (1) high-resolution intraoperative waveform/numeric tracks (~196 parameters across 11 devices), (2) a per-case clinical-information table (~74 parameters: demographics, surgery/anesthesia, intraoperative drugs/fluids/transfusion, and IN-HOSPITAL outcomes), and (3) a perioperative laboratory time-series (34 blood tests) spanning 90 days before to 90 days after anesthesia start. Single-center. The follow-up horizon is the index hospitalization plus a +/-90-day lab window around surgery; there is NO structured ward assessment (delirium/cognition/pain), NO post-discharge vital-status follow-up beyond in-hospital, NO readmission tracking, and NO biospecimens/genetics.",
+  "scope": {
+    "center": "Seoul National University Hospital (single center)",
+    "geography": "Seoul, South Korea",
+    "intraoperative_tracks": true,
+    "clinical_info_parameters": 74,
+    "lab_timeseries_tests": 34,
+    "lab_window": "-90 to +90 days around anesthesia start (postoperative labs ARE included)",
+    "in_hospital_outcomes": ["death_inhosp (in-hospital mortality)", "icu_days (ICU length of stay)", "adm/dis (admission/discharge -> hospital LOS)"],
+    "post_discharge_followup": false,
+    "ward_structured_assessment": false,
+    "readmission_tracking": false,
+    "linkage_to_registries": false,
+    "biospecimens_or_genetics": false,
+    "n_cases_approx": 6388,
+    "source": "Lee et al., Scientific Data 2022 (s41597-022-01411-5); PhysioNet vitaldb 1.0.0 lab_parameters.csv"
+  },
+  "variables": [
+    {
+      "id": "bis_index",
+      "name": "BIS (Bispectral Index)",
+      "aliases": ["bis", "bispectral_index", "depth_of_anesthesia", "anesthetic_depth"],
+      "status": "CONFIRMED", "category": "signal", "confidence_level": "high",
+      "vitaldb_track": "BIS/BIS", "units": "index 0-100",
+      "missingness": "Device-dependent: present only for cases monitored with a BIS Vista module (a subset of cases). Gaps during electrocautery/probe repositioning; absent pre-induction and post-emergence.",
+      "common_mistakes": "Assuming every case has BIS. Filter by track availability and power on the BIS subset, not all 6,388 cases.",
+      "notes": "Companion tracks: BIS/SR, BIS/EEG, BIS/SEF, BIS/EMG, BIS/TOTPOW, BIS/SQI."
+    },
+    {
+      "id": "bis_suppression_ratio",
+      "name": "Suppression Ratio (burst suppression)",
+      "aliases": ["suppression_ratio", "sr", "burst_suppression", "burst_suppression_ratio", "eeg_suppression"],
+      "status": "CONFIRMED", "category": "signal", "confidence_level": "high",
+      "vitaldb_track": "BIS/SR", "units": "percent (0-100)",
+      "missingness": "Available only when a BIS module was used (same subset as BIS). Derived EEG metric, not raw-EEG adjudication; sparse relative to raw EEG.",
+      "common_mistakes": "Treating SR>0 as a validated burst-suppression label, and (critically) assuming a downstream NEUROLOGIC OUTCOME exists to relate it to. The exposure is here; ward outcomes like delirium/POCD are not.",
+      "notes": "Exposure in the canonical 'burst suppression -> postoperative delirium' question; exposure present, outcome absent."
+    },
+    {
+      "id": "raw_eeg",
+      "name": "Raw EEG (BIS channel)",
+      "aliases": ["eeg", "raw_eeg", "bis_eeg"],
+      "status": "CONFIRMED", "category": "signal", "confidence_level": "high",
+      "vitaldb_track": "BIS/EEG", "units": "uV waveform (~128 Hz)",
+      "missingness": "Single/limited-channel processed-EEG from the BIS module only; not full multichannel clinical EEG. BIS-subset only.",
+      "common_mistakes": "Expecting montage-grade multichannel EEG; this is the BIS device channel."
+    },
+    {
+      "id": "arterial_waveform",
+      "name": "Arterial pressure waveform (invasive)",
+      "aliases": ["arterial_waveform", "art_waveform", "arterial_line", "abp_waveform", "invasive_bp_waveform"],
+      "status": "CONFIRMED", "category": "signal", "confidence_level": "high",
+      "vitaldb_track": "SNUADC/ART", "units": "mmHg waveform (500 Hz)",
+      "missingness": "Present only for cases with an arterial line (higher-acuity surgery). Many minor/ambulatory cases have only intermittent NIBP. Damping/flush artifacts.",
+      "common_mistakes": "Assuming arterial waveforms exist for all cases; they concentrate in major surgery."
+    },
+    {
+      "id": "ecg_waveform",
+      "name": "ECG waveform",
+      "aliases": ["ecg", "ecg_waveform", "ekg", "electrocardiogram"],
+      "status": "CONFIRMED", "category": "signal", "confidence_level": "high",
+      "vitaldb_track": "SNUADC/ECG_II", "units": "mV waveform (500 Hz)",
+      "missingness": "Generally present intraoperatively; lead noise/disconnect gaps. Lead II primarily.",
+      "common_mistakes": "Expecting diagnostic 12-lead ECG; this is monitoring-lead continuous ECG."
+    },
+    {
+      "id": "plethysmograph",
+      "name": "Photoplethysmogram (PPG)",
+      "aliases": ["ppg", "pleth", "plethysmogram", "photoplethysmography", "pulse_waveform"],
+      "status": "CONFIRMED", "category": "signal", "confidence_level": "high",
+      "vitaldb_track": "SNUADC/PLETH", "units": "waveform (500 Hz)",
+      "missingness": "Fingertip PPG; motion/low-perfusion artifact. Present for most cases.",
+      "common_mistakes": "Treating PPG amplitude as calibrated; it is relative and device/probe dependent."
+    },
+    {
+      "id": "mean_arterial_pressure",
+      "name": "Mean Arterial Pressure (MAP)",
+      "aliases": ["map", "mean_arterial_pressure", "mean_bp", "mbp", "art_mbp", "intraoperative_hypotension", "hypotension"],
+      "status": "CONFIRMED", "category": "hemodynamic", "confidence_level": "high",
+      "vitaldb_track": "Solar8000/ART_MBP (invasive) or Solar8000/NIBP_MBP (cuff)", "units": "mmHg",
+      "missingness": "Invasive MBP needs an arterial line (~1-2 s); non-invasive MBP is intermittent (every few min). Choose the source matching your hypotension definition.",
+      "common_mistakes": "Mixing invasive and cuff MAP sources with different sampling rates/bias, producing an inconsistent hypotension exposure."
+    },
+    {
+      "id": "blood_pressure",
+      "name": "Systolic / diastolic blood pressure",
+      "aliases": ["blood_pressure", "systolic_bp", "diastolic_bp", "sbp", "dbp", "nibp"],
+      "status": "CONFIRMED", "category": "hemodynamic", "confidence_level": "high",
+      "vitaldb_track": "Solar8000/ART_SBP, ART_DBP, NIBP_SBP, NIBP_DBP", "units": "mmHg",
+      "missingness": "Invasive vs non-invasive sources differ in cadence and availability as with MAP.",
+      "common_mistakes": "Conflating invasive and cuff systolic/diastolic series."
+    },
+    {
+      "id": "heart_rate",
+      "name": "Heart Rate (HR)",
+      "aliases": ["hr", "heart_rate", "pulse_rate"],
+      "status": "CONFIRMED", "category": "hemodynamic", "confidence_level": "high",
+      "vitaldb_track": "Solar8000/HR", "units": "beats/min",
+      "missingness": "Well populated intraoperatively; brief ECG-artifact gaps.",
+      "common_mistakes": "Confusing monitor HR with PPG-derived pulse rate during artifact."
+    },
+    {
+      "id": "spo2",
+      "name": "Peripheral oxygen saturation (SpO2)",
+      "aliases": ["spo2", "oxygen_saturation", "pulse_oximetry", "o2_sat", "desaturation"],
+      "status": "CONFIRMED", "category": "respiratory", "confidence_level": "high",
+      "vitaldb_track": "Solar8000/PLETH_SPO2", "units": "percent",
+      "missingness": "Well populated intraoperatively; motion/low-perfusion artifact causes spurious drops.",
+      "common_mistakes": "Counting artifactual transient drops as desaturation without artifact rejection."
+    },
+    {
+      "id": "etco2",
+      "name": "End-tidal CO2 (EtCO2)",
+      "aliases": ["etco2", "end_tidal_co2", "capnography", "et_co2"],
+      "status": "CONFIRMED", "category": "respiratory", "confidence_level": "high",
+      "vitaldb_track": "Solar8000/ETCO2 or Primus/ETCO2", "units": "mmHg",
+      "missingness": "Valid only during the intubated/ventilated window; absent before intubation and after extubation.",
+      "common_mistakes": "Assuming a continuous EtCO2 trace across the whole case."
+    },
+    {
+      "id": "respiratory_rate",
+      "name": "Respiratory rate",
+      "aliases": ["respiratory_rate", "rr", "resp_rate"],
+      "status": "CONFIRMED", "category": "respiratory", "confidence_level": "high",
+      "vitaldb_track": "Solar8000/RR (or Primus/RR_CO2)", "units": "breaths/min",
+      "missingness": "Ventilator-set vs measured RR differ; meaningful mainly during controlled ventilation.",
+      "common_mistakes": "Mixing set and spontaneous RR."
+    },
+    {
+      "id": "body_temperature",
+      "name": "Body temperature",
+      "aliases": ["body_temperature", "temperature", "temp", "core_temperature", "hypothermia"],
+      "status": "CONFIRMED", "category": "hemodynamic", "confidence_level": "medium",
+      "vitaldb_track": "Solar8000/BT", "units": "degC",
+      "missingness": "Present when a temperature probe was used; site (esophageal/nasopharyngeal/skin) not always specified and coverage is partial.",
+      "common_mistakes": "Treating all temperature traces as core temperature regardless of probe site."
+    },
+    {
+      "id": "tidal_volume",
+      "name": "Tidal volume (ventilator)",
+      "aliases": ["tidal_volume", "tv", "vt", "ventilator_tidal_volume", "expired_tidal_volume"],
+      "status": "CONFIRMED", "category": "respiratory", "confidence_level": "high",
+      "vitaldb_track": "Primus/TV", "units": "mL",
+      "missingness": "Only during mechanical ventilation from the anesthesia machine; absent for spontaneous/mask cases and outside the ventilated window.",
+      "common_mistakes": "Using tidal volume as if it spans the whole case."
+    },
+    {
+      "id": "airway_pressure",
+      "name": "Airway pressure (peak/PEEP/plateau)",
+      "aliases": ["airway_pressure", "peak_pressure", "pip", "peep", "plateau_pressure", "paw"],
+      "status": "CONFIRMED", "category": "respiratory", "confidence_level": "high",
+      "vitaldb_track": "Primus/PIP, Primus/PEEP, Primus/PAW_MEAN", "units": "cmH2O",
+      "missingness": "Ventilated window only; machine-track dependent.",
+      "common_mistakes": "Assuming driving pressure is provided directly; it must be derived (plateau - PEEP)."
+    },
+    {
+      "id": "anesthetic_agent_concentration",
+      "name": "Inspired/expired volatile anesthetic concentration",
+      "aliases": ["anesthetic_agent_concentration", "sevoflurane", "desflurane", "mac", "end_tidal_agent", "volatile_concentration"],
+      "status": "CONFIRMED", "category": "respiratory", "confidence_level": "high",
+      "vitaldb_track": "Primus/INSP_SEVO, Primus/EXP_SEVO, Primus/INSP_DES, Primus/EXP_DES, Primus/MAC", "units": "vol% (MAC unitless)",
+      "missingness": "Volatile-anesthetic cases only; TIVA (propofol) cases have no agent gas concentration.",
+      "common_mistakes": "Expecting volatile concentrations for TIVA cases; use Orchestra TCI tracks there instead."
+    },
+    {
+      "id": "fio2",
+      "name": "Inspired oxygen fraction (FiO2)",
+      "aliases": ["fio2", "inspired_oxygen", "inspired_o2"],
+      "status": "CONFIRMED", "category": "respiratory", "confidence_level": "high",
+      "vitaldb_track": "Primus/FIO2", "units": "fraction/percent",
+      "missingness": "Anesthesia-machine ventilated window only.",
+      "common_mistakes": "Confusing inspired vs expired O2 tracks."
+    },
+    {
+      "id": "cardiac_output",
+      "name": "Cardiac output / index",
+      "aliases": ["cardiac_output", "co", "cardiac_index", "ci", "low_cardiac_output"],
+      "status": "CONFIRMED", "category": "hemodynamic", "confidence_level": "medium",
+      "vitaldb_track": "EV1000/CO, Vigileo/CO, Vigilance/CO (also CardioQ)", "units": "L/min (CI: L/min/m2)",
+      "missingness": "Device-dependent and present only for cases monitored with an advanced hemodynamic monitor (a small subset). Different devices/algorithms are not interchangeable.",
+      "common_mistakes": "Pooling CO across EV1000/Vigileo/CardioQ as if calibrated identically; and assuming most cases have any CO monitor (few do)."
+    },
+    {
+      "id": "stroke_volume_variation",
+      "name": "Stroke volume variation / fluid responsiveness indices",
+      "aliases": ["stroke_volume_variation", "svv", "ppv", "stroke_volume", "sv"],
+      "status": "CONFIRMED", "category": "hemodynamic", "confidence_level": "medium",
+      "vitaldb_track": "EV1000/SVV, Vigileo/SVV, EV1000/SV", "units": "percent (SVV); mL (SV)",
+      "missingness": "Advanced-monitor subset only.",
+      "common_mistakes": "Assuming SVV validity outside controlled ventilation / fixed tidal volume conditions."
+    },
+    {
+      "id": "cerebral_oximetry",
+      "name": "Cerebral oxygen saturation (NIRS)",
+      "aliases": ["cerebral_oximetry", "nirs", "rso2", "scto2", "cerebral_oxygenation", "invos"],
+      "status": "CONFIRMED", "category": "signal", "confidence_level": "medium",
+      "vitaldb_track": "INVOS/SCO2_L, INVOS/SCO2_R", "units": "percent",
+      "missingness": "INVOS device subset only (selected cases, e.g. cardiac/major surgery).",
+      "common_mistakes": "Assuming broad availability; NIRS is used in a minority of cases."
+    },
+    {
+      "id": "tci_concentration",
+      "name": "Target-controlled infusion concentrations (propofol/remifentanil)",
+      "aliases": ["tci_concentration", "tci", "effect_site_concentration", "propofol_concentration", "remifentanil_concentration", "infusion_rate"],
+      "status": "CONFIRMED", "category": "signal", "confidence_level": "medium",
+      "vitaldb_track": "Orchestra/PPF20_CE, Orchestra/PPF20_CP, Orchestra/RFTN20_CE, Orchestra/*_RATE", "units": "mcg/mL or ng/mL (CE/CP); mL/h (rate)",
+      "missingness": "Orchestra pump subset (TIVA/TCI cases). Plasma (CP) and effect-site (CE) are model estimates, not measured concentrations.",
+      "common_mistakes": "Treating modeled effect-site concentration as a measured drug level."
+    },
+    {
+      "id": "age",
+      "name": "Age",
+      "aliases": ["age", "patient_age"],
+      "status": "CONFIRMED", "category": "demographic", "confidence_level": "high",
+      "vitaldb_track": "clinical_info.age", "units": "years",
+      "missingness": "Near-complete per-case column. Adult-dominant cohort; limited pediatric coverage.",
+      "common_mistakes": "Assuming wide pediatric range."
+    },
+    {
+      "id": "sex",
+      "name": "Sex",
+      "aliases": ["sex", "gender", "patient_sex"],
+      "status": "CONFIRMED", "category": "demographic", "confidence_level": "high",
+      "vitaldb_track": "clinical_info.sex", "units": "M/F",
+      "missingness": "Near-complete. Recorded natal sex.",
+      "common_mistakes": "Interpreting as gender identity."
+    },
+    {
+      "id": "height",
+      "name": "Height",
+      "aliases": ["height", "patient_height", "stature"],
+      "status": "CONFIRMED", "category": "demographic", "confidence_level": "high",
+      "vitaldb_track": "clinical_info.height", "units": "cm",
+      "missingness": "Mostly complete.",
+      "common_mistakes": "None major; pair with weight for BMI."
+    },
+    {
+      "id": "weight",
+      "name": "Weight",
+      "aliases": ["weight", "body_weight", "patient_weight"],
+      "status": "CONFIRMED", "category": "demographic", "confidence_level": "high",
+      "vitaldb_track": "clinical_info.weight", "units": "kg",
+      "missingness": "Mostly complete.",
+      "common_mistakes": "None major."
+    },
+    {
+      "id": "bmi",
+      "name": "Body mass index",
+      "aliases": ["bmi", "body_mass_index", "obesity"],
+      "status": "CONFIRMED", "category": "demographic", "confidence_level": "high",
+      "vitaldb_track": "clinical_info.bmi", "units": "kg/m2",
+      "missingness": "Provided per case (also derivable from height/weight).",
+      "common_mistakes": "Using BMI as a proxy for body composition in a single-center Korean cohort without considering distribution differences."
+    },
+    {
+      "id": "asa_class",
+      "name": "ASA physical status classification",
+      "aliases": ["asa", "asa_class", "asa_ps", "asa_physical_status"],
+      "status": "CONFIRMED", "category": "demographic", "confidence_level": "high",
+      "vitaldb_track": "clinical_info.asa", "units": "ordinal 1-6",
+      "missingness": "Mostly complete; skews ASA 1-3 (elective population).",
+      "common_mistakes": "Treating ASA as a precise severity score."
+    },
+    {
+      "id": "emergency_surgery",
+      "name": "Emergency surgery flag",
+      "aliases": ["emergency_surgery", "emop", "emergency", "urgency"],
+      "status": "CONFIRMED", "category": "demographic", "confidence_level": "high",
+      "vitaldb_track": "clinical_info.emop", "units": "boolean",
+      "missingness": "Per-case flag; emergency cases are a minority.",
+      "common_mistakes": "Assuming a graded urgency scale; this is a binary flag."
+    },
+    {
+      "id": "anesthesia_type",
+      "name": "Type of anesthesia",
+      "aliases": ["anesthesia_type", "ane_type", "general_anesthesia", "regional_anesthesia", "tiva"],
+      "status": "CONFIRMED", "category": "demographic", "confidence_level": "high",
+      "vitaldb_track": "clinical_info.ane_type", "units": "categorical",
+      "missingness": "Per-case category (e.g. general, spinal/regional).",
+      "common_mistakes": "Assuming TIVA vs volatile is directly coded here; infer from drug/agent tracks too."
+    },
+    {
+      "id": "surgery_type",
+      "name": "Surgery type / operation / department / diagnosis",
+      "aliases": ["surgery_type", "operation", "procedure", "optype", "opname", "surgical_procedure", "department", "diagnosis", "dx"],
+      "status": "CONFIRMED", "category": "demographic", "confidence_level": "high",
+      "vitaldb_track": "clinical_info.optype, opname, department, dx", "units": "categorical / free text",
+      "missingness": "'optype' coarse category, 'opname'/'dx' free text, 'department' surgical service. Single-center case mix; some categories sparse.",
+      "common_mistakes": "Assuming standardized coding (CPT/ICD-PCS); harmonization of free-text fields is manual."
+    },
+    {
+      "id": "surgical_approach_position",
+      "name": "Surgical approach and patient position",
+      "aliases": ["surgical_approach", "approach", "position", "surgical_position"],
+      "status": "CONFIRMED", "category": "demographic", "confidence_level": "high",
+      "vitaldb_track": "clinical_info.approach, clinical_info.position", "units": "categorical",
+      "missingness": "Per-case categories (e.g. open/laparoscopic; supine/prone/lateral).",
+      "common_mistakes": "Sparse categories for uncommon approaches/positions."
+    },
+    {
+      "id": "estimated_blood_loss",
+      "name": "Estimated blood loss",
+      "aliases": ["estimated_blood_loss", "ebl", "intraop_ebl", "blood_loss"],
+      "status": "CONFIRMED", "category": "intraoperative", "confidence_level": "medium",
+      "vitaldb_track": "clinical_info.intraop_ebl", "units": "mL",
+      "missingness": "Clinician-estimated case total, not a time series; known to be imprecise.",
+      "common_mistakes": "Treating EBL as an accurate continuous measurement."
+    },
+    {
+      "id": "urine_output",
+      "name": "Intraoperative urine output",
+      "aliases": ["urine_output", "intraop_uo", "uo", "urine"],
+      "status": "CONFIRMED", "category": "intraoperative", "confidence_level": "medium",
+      "vitaldb_track": "clinical_info.intraop_uo", "units": "mL",
+      "missingness": "Case total; recorded mainly when a urinary catheter was placed.",
+      "common_mistakes": "Using intraoperative UO as a renal-outcome endpoint; pair with postoperative creatinine for AKI."
+    },
+    {
+      "id": "transfusion",
+      "name": "Intraoperative transfusion (RBC/FFP)",
+      "aliases": ["transfusion", "rbc_transfusion", "intraop_rbc", "ffp_transfusion", "intraop_ffp", "blood_products"],
+      "status": "CONFIRMED", "category": "intraoperative", "confidence_level": "high",
+      "vitaldb_track": "clinical_info.intraop_rbc, clinical_info.intraop_ffp", "units": "units",
+      "missingness": "Case totals (units). Platelets/cryoprecipitate not separately columned.",
+      "common_mistakes": "Assuming all blood-product types are itemized; only RBC and FFP are."
+    },
+    {
+      "id": "fluid_administration",
+      "name": "Intraoperative crystalloid/colloid volume",
+      "aliases": ["fluid_administration", "crystalloid", "intraop_crystalloid", "colloid", "intraop_colloid", "fluids"],
+      "status": "CONFIRMED", "category": "intraoperative", "confidence_level": "high",
+      "vitaldb_track": "clinical_info.intraop_crystalloid, clinical_info.intraop_colloid", "units": "mL",
+      "missingness": "Case totals, not time-resolved infusion curves.",
+      "common_mistakes": "Expecting time-stamped fluid boluses; only totals are provided."
+    },
+    {
+      "id": "vasopressor_dose",
+      "name": "Intraoperative vasopressor/inotrope bolus dose",
+      "aliases": ["vasopressor_dose", "phenylephrine", "ephedrine", "epinephrine", "intraop_phe", "intraop_eph", "intraop_epi"],
+      "status": "CONFIRMED", "category": "intraoperative", "confidence_level": "high",
+      "vitaldb_track": "clinical_info.intraop_phe, intraop_eph, intraop_epi", "units": "mcg or mg",
+      "missingness": "Case-total bolus doses; continuous infusions of some agents may instead appear in Orchestra pump tracks.",
+      "common_mistakes": "Treating bolus-dose totals as continuous infusion exposure."
+    },
+    {
+      "id": "anesthetic_drug_dose",
+      "name": "Intraoperative anesthetic/relaxant bolus dose",
+      "aliases": ["anesthetic_drug_dose", "propofol_dose", "intraop_ppf", "midazolam", "intraop_mdz", "fentanyl", "intraop_ftn", "rocuronium", "intraop_rocu", "vecuronium", "intraop_vecu"],
+      "status": "CONFIRMED", "category": "intraoperative", "confidence_level": "high",
+      "vitaldb_track": "clinical_info.intraop_ppf, intraop_mdz, intraop_ftn, intraop_rocu, intraop_vecu", "units": "mg or mcg",
+      "missingness": "Case-total bolus doses. TCI/continuous propofol/remifentanil appear in Orchestra tracks, not here.",
+      "common_mistakes": "Summing bolus totals with TCI exposure without reconciling the two sources."
+    },
+    {
+      "id": "preop_comorbidity",
+      "name": "Preoperative comorbidity flags (HTN/DM/arrhythmia/PFT)",
+      "aliases": ["preop_comorbidity", "preop_htn", "hypertension_history", "preop_dm", "diabetes_history", "preop_arrhythmia", "preop_pft"],
+      "status": "CONFIRMED", "category": "demographic", "confidence_level": "medium",
+      "vitaldb_track": "clinical_info.preop_htn, preop_dm, preop_arrhythmia, preop_pft", "units": "boolean / PFT result",
+      "missingness": "Limited comorbidity set only (hypertension, diabetes, ECG arrhythmia, pulmonary function). No structured Charlson/full problem list.",
+      "common_mistakes": "Expecting a complete comorbidity index; only these few flags exist, so confounder adjustment is limited."
+    },
+    {
+      "id": "preoperative_labs",
+      "name": "Preoperative laboratory panel",
+      "aliases": ["preoperative_labs", "preop_labs", "preop_hb", "preop_cr", "preop_creatinine", "preop_na", "preop_k", "preop_albumin", "preop_alb", "baseline_labs"],
+      "status": "CONFIRMED", "category": "laboratory", "confidence_level": "high",
+      "vitaldb_track": "clinical_info.preop_* (hb, plt, pt, aptt, na, k, gluc, alb, ast, alt, bun, cr, ph, hco3, be, pao2, paco2, sao2)", "units": "varies",
+      "missingness": "Per-case preoperative values; some labs missing when not ordered. Baseline creatinine (preop_cr) available for AKI baselines.",
+      "common_mistakes": "Assuming every preop lab is present for every case."
+    },
+    {
+      "id": "laboratory_timeseries",
+      "name": "Perioperative laboratory time-series (34 tests, -90 to +90 days)",
+      "aliases": ["laboratory_results", "lab_results", "labs", "lab_timeseries", "postoperative_labs", "postop_labs"],
+      "status": "CONFIRMED", "category": "laboratory", "confidence_level": "high",
+      "vitaldb_track": "lab_data (name/dt/result): wbc, hb, hct, plt, esr, gluc, tprot, alb, tbil, ast, alt, bun, cr, gfr, ccr, na, k, ica, cl, ammo, crp, lac, ptinr, pt%, ptsec, aptt, fib, ph, pco2, po2, hco3, be, sao2",
+      "units": "varies",
+      "missingness": "Irregular, order-driven sampling (NOT fixed schedule). Window is -90 to +90 days around anesthesia start, so POSTOPERATIVE labs exist but only when clinically ordered; many cases have few or no postop draws. Coverage thins with distance from surgery.",
+      "common_mistakes": "Assuming dense, scheduled postoperative labs. Sampling is sparse and informative-missing (sicker patients get more draws); a postop value's ABSENCE is not random."
+    },
+    {
+      "id": "postoperative_creatinine",
+      "name": "Postoperative creatinine (for AKI)",
+      "aliases": ["postoperative_creatinine", "postop_creatinine", "postop_cr", "creatinine", "serum_creatinine"],
+      "status": "CONFIRMED", "category": "laboratory", "confidence_level": "medium",
+      "vitaldb_track": "lab_data name='cr' (+ baseline clinical_info.preop_cr; gfr/ccr also available)", "units": "mg/dL",
+      "missingness": "Present within the +/-90-day lab window BUT only when creatinine was ordered postoperatively. Many cases lack postop draws, so an AKI cohort is a SELECTED subset, not all 6,388.",
+      "common_mistakes": "Assuming KDIGO-grade AKI ascertainment for everyone. You can DERIVE an AKI endpoint from pre/post creatinine where draws exist, but there is no pre-labeled AKI field and the urine-output KDIGO criterion is not reliably available postoperatively."
+    },
+    {
+      "id": "in_hospital_mortality",
+      "name": "In-hospital mortality",
+      "aliases": ["in_hospital_mortality", "death_inhosp", "inhospital_death", "operative_mortality", "in_hospital_death"],
+      "status": "CONFIRMED", "category": "outcome", "confidence_level": "high",
+      "vitaldb_track": "clinical_info.death_inhosp", "units": "boolean",
+      "missingness": "Captures death during the index hospitalization only. Events are rare (low base rate) -> limited power for mortality models.",
+      "common_mistakes": "Equating in-hospital mortality with 30-day or post-discharge mortality; a patient who dies after discharge is recorded as alive. Use in_hospital_mortality only for in-hospital death endpoints."
+    },
+    {
+      "id": "icu_length_of_stay",
+      "name": "ICU length of stay",
+      "aliases": ["icu_length_of_stay", "icu_days", "icu_los", "icu_stay"],
+      "status": "CONFIRMED", "category": "outcome", "confidence_level": "high",
+      "vitaldb_track": "clinical_info.icu_days", "units": "days",
+      "missingness": "Postoperative ICU days. Zero for non-ICU cases; right-skewed.",
+      "common_mistakes": "Treating ICU days as ICU admission yes/no without checking zeros, or as a quality metric without case-mix adjustment."
+    },
+    {
+      "id": "hospital_length_of_stay",
+      "name": "Hospital length of stay",
+      "aliases": ["hospital_length_of_stay", "hospital_los", "los", "length_of_stay", "los_postop"],
+      "status": "CONFIRMED", "category": "outcome", "confidence_level": "medium",
+      "vitaldb_track": "derived from clinical_info.adm and clinical_info.dis (admission/discharge times)", "units": "days",
+      "missingness": "Not a pre-computed column; compute from discharge minus admission. Single-center discharge practices.",
+      "common_mistakes": "Expecting a ready-made LOS field; it must be derived from adm/dis timestamps."
+    },
+
+    {
+      "id": "postoperative_delirium",
+      "name": "Postoperative delirium",
+      "aliases": ["postoperative_delirium", "delirium", "post_op_delirium", "pod", "cam_icu", "emergence_delirium_followup"],
+      "status": "CONFIRMED_ABSENT", "category": "outcome", "confidence_level": "high",
+      "vitaldb_track": null, "units": null,
+      "missingness": "Not collected. Delirium requires structured ward assessments (CAM/CAM-ICU/3D-CAM, DSM-5) over postoperative days 1-5. VitalDB has no ward-course or delirium-screening data; its postoperative footprint is lab draws and a few in-hospital outcome fields only.",
+      "common_mistakes": "Assuming an intraoperative EEG/BIS signal substitutes for a delirium label. Burst suppression is an intraoperative EXPOSURE; delirium is a structured ward OUTCOME VitalDB does not record. The study cannot be done in VitalDB alone.",
+      "notes": "Canonical trustworthy 'no' for the burst-suppression -> delirium question."
+    },
+    {
+      "id": "pocd",
+      "name": "Postoperative cognitive dysfunction (POCD)",
+      "aliases": ["pocd", "postoperative_cognitive_dysfunction", "cognitive_decline", "neurocognitive_disorder", "cognitive_testing"],
+      "status": "CONFIRMED_ABSENT", "category": "outcome", "confidence_level": "high",
+      "vitaldb_track": null, "units": null,
+      "missingness": "Not collected. POCD requires baseline and follow-up neuropsychological testing (weeks-months postop). VitalDB has no cognitive testing and no post-discharge follow-up.",
+      "common_mistakes": "Conflating intraoperative depth-of-anesthesia signals with a downstream cognitive outcome that is never ascertained here."
+    },
+    {
+      "id": "mortality_30day",
+      "name": "30-day (post-discharge) mortality",
+      "aliases": ["mortality_30day", "30_day_mortality", "thirty_day_mortality", "postoperative_mortality", "death_30d", "90_day_mortality", "long_term_mortality"],
+      "status": "CONFIRMED_ABSENT", "category": "outcome", "confidence_level": "high",
+      "vitaldb_track": null, "units": null,
+      "missingness": "Not collected as specified. VitalDB records IN-HOSPITAL mortality (death_inhosp) only; there is no post-discharge vital-status follow-up or death-registry linkage, so a patient discharged alive then dying by day 30 is not captured.",
+      "common_mistakes": "Using in-hospital mortality as if it were 30-day mortality. They differ materially (short LOS misses post-discharge deaths). If your endpoint truly requires 30-day vital status, it is NOT feasible; if in-hospital death suffices, use 'in_hospital_mortality' instead.",
+      "notes": "See [[in_hospital_mortality]] for the available alternative."
+    },
+    {
+      "id": "readmission",
+      "name": "Hospital readmission",
+      "aliases": ["readmission", "30_day_readmission", "hospital_readmission", "unplanned_readmission"],
+      "status": "CONFIRMED_ABSENT", "category": "outcome", "confidence_level": "high",
+      "vitaldb_track": null, "units": null,
+      "missingness": "Not collected. Readmission requires post-discharge encounter tracking. VitalDB ends at the index hospitalization with no longitudinal encounter history.",
+      "common_mistakes": "Treating a single-encounter dataset as if it held the longitudinal admission history needed for readmission."
+    },
+    {
+      "id": "postoperative_pain",
+      "name": "Postoperative pain scores (ward)",
+      "aliases": ["postoperative_pain", "pain_score", "nrs_pain", "vas_pain", "ward_pain"],
+      "status": "CONFIRMED_ABSENT", "category": "outcome", "confidence_level": "high",
+      "vitaldb_track": null, "units": null,
+      "missingness": "Not collected. Routine ward pain scores (NRS/VAS over postop days) are not part of the clinical-information table or any track.",
+      "common_mistakes": "Assuming a perioperative dataset includes ward pain assessments; these structured nursing scores are absent."
+    },
+    {
+      "id": "ponv",
+      "name": "Postoperative nausea and vomiting (ward)",
+      "aliases": ["ponv", "postoperative_nausea", "nausea_vomiting", "antiemetic_outcome"],
+      "status": "CONFIRMED_ABSENT", "category": "outcome", "confidence_level": "high",
+      "vitaldb_track": null, "units": null,
+      "missingness": "Not collected. PONV is a structured ward outcome not recorded in VitalDB.",
+      "common_mistakes": "Inferring PONV from intraoperative antiemetic dosing; that is exposure, not outcome ascertainment."
+    },
+    {
+      "id": "genetic_data",
+      "name": "Genetic / genomic data",
+      "aliases": ["genetic_data", "genomics", "genotype", "snp", "pharmacogenomics", "genetic_markers", "dna"],
+      "status": "CONFIRMED_ABSENT", "category": "outcome", "confidence_level": "high",
+      "vitaldb_track": null, "units": null,
+      "missingness": "Not collected. No biospecimens, genotyping, sequencing, or pharmacogenomic data of any kind.",
+      "common_mistakes": "Assuming a rich physiologic dataset also carries molecular/genetic covariates. Any gene-environment or pharmacogenomic question is out of scope."
+    }
+  ]
+}

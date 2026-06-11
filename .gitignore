@@ -1,0 +1,16 @@
+# runtime artifacts
+scoping_runs/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# editor / OS
+.DS_Store
+.vscode/
+.idea/
+
+# session bookkeeping
+session_log_*.md
+NEW_CHAT_PROMPT_*.md
+transcript-backups/

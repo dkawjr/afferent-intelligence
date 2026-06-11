@@ -1,0 +1,86 @@
+{
+  "question": "Is intraoperative hypotension associated with postoperative acute kidney injury?",
+  "ai_enriched": false,
+  "demo": true,
+  "design": "Retrospective single-center observational cohort (VitalDB).",
+  "primary_analysis": "Adjusted association between exposure and outcome; model family chosen by outcome type.",
+  "models": [
+    "Multivariable logistic regression (binary AKI outcome)",
+    "Sensitivity analysis restricted to the arterial-line subset"
+  ],
+  "covariates": [
+    "age",
+    "ASA physical status"
+  ],
+  "limitations": [
+    "Mean Arterial Pressure (MAP): Invasive MBP needs an arterial line (~1-2 s); non-invasive MBP is intermittent (every few min). Choose the source matching your hypotension definition.",
+    "Postoperative creatinine (for AKI): Present within the +/-90-day lab window BUT only when creatinine was ordered postoperatively. Many cases lack postop draws, so an AKI cohort is a SELECTED subset, not all 6,388."
+  ],
+  "plots": [
+    {
+      "title": "Distribution of intraoperative hypotension",
+      "rationale": "Inspect the exposure distribution and pick clinically sensible cut-points.",
+      "url": "examples/plots/fig1_histogram.png"
+    },
+    {
+      "title": "postoperative AKI across intraoperative hypotension",
+      "rationale": "Show the exposure–outcome relationship before modelling.",
+      "url": "examples/plots/fig2_event_rate_by_exposure.png"
+    },
+    {
+      "title": "intraoperative hypotension by ASA",
+      "rationale": "Check confounding by baseline risk (ASA) across the cohort.",
+      "url": "examples/plots/fig3_box_by_subgroup.png"
+    }
+  ],
+  "files": [
+    {
+      "name": "analysis_plan.md",
+      "ai": false
+    },
+    {
+      "name": "data_dictionary.csv",
+      "ai": false
+    },
+    {
+      "name": "extract_vitaldb.py",
+      "ai": false
+    },
+    {
+      "name": "power_estimate.md",
+      "ai": false
+    },
+    {
+      "name": "make_plots.py",
+      "ai": false
+    },
+    {
+      "name": "plots/fig1_histogram.png",
+      "ai": false
+    },
+    {
+      "name": "plots/fig2_event_rate_by_exposure.png",
+      "ai": false
+    },
+    {
+      "name": "plots/fig3_box_by_subgroup.png",
+      "ai": false
+    },
+    {
+      "name": ".gitignore",
+      "ai": false
+    },
+    {
+      "name": "requirements.txt",
+      "ai": false
+    },
+    {
+      "name": "GITHUB_SETUP.md",
+      "ai": false
+    }
+  ],
+  "has_github": true,
+  "github_repo_url": null,
+  "download_url": "examples/scoping_pack.zip",
+  "filebase": "examples/"
+}

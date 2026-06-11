@@ -1,0 +1,1025 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Afferent Intelligence — VitalDB feasibility triage</title>
+<style>
+  :root {
+    --bg:#f5f7fa; --card:#fff; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0;
+    --accent:#0f766e; --accent-soft:#ccfbf1;
+    --green:#15803d; --green-bg:#ecfdf5; --green-line:#a7f3d0;
+    --amber:#b45309; --amber-bg:#fffbeb; --amber-line:#fde68a;
+    --red:#b91c1c; --red-bg:#fef2f2; --red-line:#fecaca;
+    --slate:#475569; --slate-bg:#f1f5f9; --slate-line:#cbd5e1;
+    --shadow:0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 -apple-system,"Segoe UI",Roboto,Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:860px;margin:0 auto;padding:40px 22px 90px}
+
+  header.brand{display:flex;align-items:center;gap:14px}
+  .logo{width:42px;height:42px;flex:none}
+  .brand h1{font-size:24px;margin:0;letter-spacing:-.02em;font-weight:680}
+  .brand .sub{color:var(--muted);font-size:13.5px;margin-top:2px}
+  .modebadge{margin-left:auto;font-size:11.5px;font-weight:650;padding:5px 11px;border-radius:999px;
+    border:1px solid var(--line);background:#fff;color:var(--muted);white-space:nowrap}
+  .modebadge.ai{color:var(--accent);border-color:var(--accent-soft);background:#f0fdfa}
+  .modebadge .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:currentColor;margin-right:6px;vertical-align:middle}
+
+  .tagline{margin:18px 0 26px;padding:14px 16px;background:var(--card);border:1px solid var(--line);
+    border-radius:12px;box-shadow:var(--shadow);font-size:14px;color:#334155}
+  .tagline b{color:var(--accent)}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px}
+  label.lbl{display:block;font-size:12.5px;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+  textarea{width:100%;min-height:80px;resize:vertical;padding:12px 14px;border:1px solid var(--line);
+    border-radius:10px;font:inherit;color:var(--ink);background:#fcfdfe;outline:none}
+  textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .row{display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap}
+  button.go{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:11px 20px;font:inherit;font-weight:620;cursor:pointer}
+  button.go:hover{background:#0c5e57}
+  button.go:disabled{opacity:.55;cursor:default}
+  .hint{color:var(--muted);font-size:12.5px}
+  .examples{margin-top:16px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:#f8fafc;border:1px solid var(--line);color:#334155;border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer}
+  .chip:hover{border-color:var(--accent);color:var(--accent);background:#fff}
+
+  #result{margin-top:24px;display:none}
+  .verdict{border-radius:14px;padding:18px 20px;border:1px solid;box-shadow:var(--shadow)}
+  .verdict .vtop{display:flex;align-items:center;gap:12px}
+  .vbadge{font-size:12px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;padding:5px 11px;border-radius:999px;white-space:nowrap}
+  .verdict h2{margin:0;font-size:19px;letter-spacing:-.01em}
+  .verdict p.reason{margin:12px 0 0;font-size:14.5px;color:#1e293b}
+  .v-FEASIBLE{background:var(--green-bg);border-color:var(--green-line)} .v-FEASIBLE .vbadge{background:var(--green);color:#fff} .v-FEASIBLE h2{color:var(--green)}
+  .v-FEASIBLE_WITH_CAVEATS{background:var(--amber-bg);border-color:var(--amber-line)} .v-FEASIBLE_WITH_CAVEATS .vbadge{background:var(--amber);color:#fff} .v-FEASIBLE_WITH_CAVEATS h2{color:var(--amber)}
+  .v-NOT_FEASIBLE{background:var(--red-bg);border-color:var(--red-line)} .v-NOT_FEASIBLE .vbadge{background:var(--red);color:#fff} .v-NOT_FEASIBLE h2{color:var(--red)}
+  .v-INSUFFICIENT_INFO{background:var(--slate-bg);border-color:var(--slate-line)} .v-INSUFFICIENT_INFO .vbadge{background:var(--slate);color:#fff} .v-INSUFFICIENT_INFO h2{color:var(--slate)}
+
+  .seclabel{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:26px 0 10px}
+  .tagchip{font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 7px;border-radius:5px;text-transform:none}
+  .tag-ai{background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe}
+  .tag-verified{background:var(--green-bg);color:var(--green);border:1px solid var(--green-line)}
+
+  .peco{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .peco .cell{border:1px solid var(--line);border-radius:10px;background:#fbfcfe;padding:10px 12px}
+  .peco .k{font-size:11px;font-weight:700;letter-spacing:.04em;color:#6366f1;text-transform:uppercase}
+  .peco .val{font-size:14px;margin-top:3px;color:#1e293b}
+
+  .ct{display:grid;gap:10px}
+  .crow{border:1px solid var(--line);border-radius:12px;background:var(--card);box-shadow:var(--shadow);overflow:hidden}
+  .crow>summary{list-style:none;cursor:pointer;padding:13px 15px;display:flex;align-items:center;gap:12px}
+  .crow>summary::-webkit-details-marker{display:none}
+  .pill{font-size:11px;font-weight:720;letter-spacing:.04em;padding:4px 9px;border-radius:6px;white-space:nowrap;flex:none}
+  .p-CONFIRMED{background:var(--green-bg);color:var(--green);border:1px solid var(--green-line)}
+  .p-CONFIRMED_ABSENT{background:var(--red-bg);color:var(--red);border:1px solid var(--red-line)}
+  .p-NOT_IN_INVENTORY{background:var(--slate-bg);color:var(--slate);border:1px solid var(--slate-line)}
+  .cname{font-weight:620}
+  .role{font-size:10.5px;color:var(--muted);border:1px solid var(--line);padding:2px 7px;border-radius:5px;text-transform:uppercase;letter-spacing:.03em}
+  .role.outcome{color:var(--accent);border-color:var(--accent-soft);background:#f0fdfa}
+  .cmeta{color:var(--muted);font-size:12.5px;margin-left:auto;text-align:right}
+  .cbody{padding:0 15px 14px;border-top:1px dashed var(--line);margin-top:2px}
+  .cbody .kv{margin-top:10px;font-size:13.5px}
+  .cbody .kv b{color:#334155}
+  .mono{font-family:ui-monospace,"Cascadia Code",Consolas,monospace;font-size:12.5px;background:#f8fafc;border:1px solid var(--line);padding:1px 6px;border-radius:5px}
+
+  .reframe{border:1px solid var(--accent-soft);background:#f0fdfa;border-radius:12px;padding:15px;margin-top:12px}
+  .reframe .h{font-weight:650;color:var(--accent);font-size:14px;margin-bottom:6px}
+  .reframe ul{margin:8px 0 0;padding-left:18px}
+  .reframe li{margin:3px 0}
+  .tag-guide{background:#f1f5f9;color:var(--slate);border:1px solid var(--slate-line)}
+  .helper{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:16px;box-shadow:var(--shadow)}
+  .helper .htxt{font-size:13.5px;color:#334155}
+  .suglist{display:grid;gap:8px;margin-top:12px}
+  .sugq{border:1px solid var(--line);border-radius:10px;padding:11px 13px;cursor:pointer;background:#fbfcfe;transition:border-color .12s,background .12s}
+  .sugq:hover{border-color:var(--accent);background:#fff}
+  .sugq .sq{font-weight:600;font-size:14px;color:#1e293b}
+  .sugq .sq::before{content:"↳ ";color:var(--accent)}
+  .sugq .sw{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .vocabh{font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px}
+  .vocab{display:grid;gap:6px}
+  .vg{font-size:12.5px;color:#475569}
+  .vgk{display:inline-block;min-width:148px;font-weight:650;color:var(--accent)}
+
+  /* study toolkit (after a feasible verdict) */
+  .toolkit{border:1px solid var(--line);background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:16px}
+  .checklist{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:7px}
+  .checklist li{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:#1e293b}
+  .checklist input{margin-top:3px;width:16px;height:16px;accent-color:var(--accent);flex:none}
+  .checklist li.done span{color:var(--muted);text-decoration:line-through}
+  .tkbtns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .btn-pay{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:10px 16px;font:inherit;font-weight:620;cursor:pointer}
+  .btn-pay:hover{background:#0c5e57}
+  .btn-ghost{background:#fff;color:#334155;border:1px solid var(--line);border-radius:10px;padding:10px 16px;font:inherit;font-weight:600;cursor:pointer}
+  .btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+  .savedflag{font-size:12.5px;color:var(--accent);align-self:center}
+
+  /* scope form */
+  .scopeform{margin-top:14px;border-top:1px dashed var(--line);padding-top:14px;display:none}
+  .ff{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .ff .f{display:flex;flex-direction:column;gap:4px}
+  .ff .f.full{grid-column:1/3}
+  .ff label{font-size:11.5px;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .ff input[type=text],.ff input[type=number],.ff select,.ff textarea{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;background:#fcfdfe}
+  .ff textarea{min-height:54px;resize:vertical}
+  .covbox{display:flex;flex-wrap:wrap;gap:8px}
+  .covbox label{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;text-transform:none;letter-spacing:0;color:#334155;border:1px solid var(--line);border-radius:8px;padding:5px 9px;cursor:pointer}
+  .covbox input{accent-color:var(--accent)}
+
+  /* paywall modal */
+  .modal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:50}
+  .modal .box{background:#fff;border-radius:16px;max-width:420px;width:92%;padding:24px;box-shadow:0 20px 60px rgba(15,23,42,.3)}
+  .modal h3{margin:0 0 6px;font-size:18px}
+  .modal .price{font-size:34px;font-weight:720;color:var(--accent);margin:8px 0}
+  .modal ul{margin:6px 0 16px;padding-left:18px;font-size:13px;color:#334155}
+  .modal .demo{font-size:11.5px;color:var(--muted);background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:14px}
+  .modal .mbtns{display:flex;gap:10px;justify-content:flex-end}
+
+  /* scope results */
+  .scoperes{margin-top:16px}
+  .plotgrid{display:grid;gap:14px;margin-top:6px}
+  .plotcard{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;box-shadow:var(--shadow)}
+  .plotcard img{width:100%;display:block;border-bottom:1px solid var(--line)}
+  .plotcard .pc{padding:10px 13px}
+  .plotcard .pt{font-weight:620;font-size:13.5px}
+  .plotcard .pr{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .filelist{display:grid;gap:6px;margin-top:6px}
+  .filerow{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-size:13.5px;background:#fbfcfe}
+  .filerow .fn{font-family:ui-monospace,Consolas,monospace;font-size:12.5px}
+  .filerow a{margin-left:auto}
+  .sapblock{font-size:13.5px;color:#1e293b;margin-top:6px}
+  .sapblock .k{font-weight:650;color:var(--accent);font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin-top:10px}
+
+  /* ideas board */
+  .ideacard{border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-top:8px;background:#fbfcfe}
+  .ideacard .ih{display:flex;align-items:center;gap:10px}
+  .ideacard .iq{font-weight:600;font-size:13.5px;cursor:pointer}
+  .ideacard .idate{font-size:11.5px;color:var(--muted);margin-left:auto}
+  .ideacard .irm{cursor:pointer;color:var(--muted);font-size:13px;border:0;background:none}
+  .miniv{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px}
+  .countbadge{background:var(--accent);color:#fff;border-radius:999px;font-size:11px;padding:1px 8px;margin-left:6px}
+
+  details.card{margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:4px 16px}
+  details.card summary{cursor:pointer;font-weight:620;padding:12px 0}
+  details.card .inner{padding:4px 0 16px;color:#334155;font-size:13.5px}
+  .profile{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 18px;margin-top:6px}
+  .profile .p{border-left:3px solid var(--accent-soft);padding:2px 0 2px 10px}
+  .profile .p .k{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+  .profile .p .v{font-size:13.5px}
+  .haves{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .have{font-size:12px;padding:3px 9px;border-radius:6px;border:1px solid var(--green-line);background:var(--green-bg);color:var(--green)}
+  .lack{font-size:12px;padding:3px 9px;border-radius:6px;border:1px solid var(--red-line);background:var(--red-bg);color:var(--red)}
+  details.card ol{padding-left:18px}
+
+  footer{margin-top:34px;color:var(--muted);font-size:12px;text-align:center;line-height:1.7}
+  footer .nope{color:var(--red);font-weight:600}
+  a{color:var(--accent)}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--accent-soft);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ============================ polish ============================ */
+  :root{
+    --bg:#f3f6f9; --card:#ffffff; --ink:#0b1220; --muted:#6b7686; --line:#e6eaf0;
+    --accent:#0d7a72; --accent-soft:#d4f4ef;
+    --shadow:0 1px 2px rgba(16,24,40,.04),0 10px 30px rgba(16,24,40,.07);
+  }
+  body{background:radial-gradient(1100px 560px at 50% -220px,#e9f5f3 0%,var(--bg) 58%);color:var(--ink)}
+  .wrap{max-width:884px}
+  .brand h1{font-family:"Iowan Old Style","Palatino Linotype",Georgia,serif;font-weight:700;letter-spacing:-.015em}
+  .modebadge{box-shadow:var(--shadow)}
+  .tagline{border-radius:14px;line-height:1.6}
+  .panel{border-radius:18px;padding:20px}
+  textarea{border-radius:12px;font-size:15.5px}
+  button.go,.btn-pay{background:linear-gradient(180deg,#12877e,#0c6b63);box-shadow:0 6px 16px rgba(13,122,114,.22);transition:transform .08s,box-shadow .12s;border-radius:11px}
+  button.go:hover,.btn-pay:hover{transform:translateY(-1px);box-shadow:0 9px 22px rgba(13,122,114,.28)}
+  .chip{transition:all .12s;border-radius:999px}
+  .verdict{position:relative;border-radius:16px;padding:20px 22px 20px 26px;overflow:hidden}
+  .verdict::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px}
+  .v-FEASIBLE::before{background:var(--green)} .v-FEASIBLE_WITH_CAVEATS::before{background:var(--amber)}
+  .v-NOT_FEASIBLE::before{background:var(--red)} .v-INSUFFICIENT_INFO::before{background:var(--slate)}
+  .seclabel{margin-top:24px}
+  .crow{border-radius:13px;transition:border-color .12s,box-shadow .12s}
+  .crow:hover{border-color:#cbd5e1}
+  details.card{border-radius:14px}
+
+  /* secondary buttons + action row */
+  .actionsrow{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+  .btn-mini{font-size:12.5px;font-weight:600;border:1px solid var(--line);background:#fff;border-radius:10px;padding:7px 13px;cursor:pointer;color:#334155;transition:all .12s}
+  .btn-mini:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px)}
+
+  /* study at a glance */
+  .glance{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .glance .g{border:1px solid var(--line);border-radius:13px;background:#fbfdfe;padding:12px 13px}
+  .glance .g .gk{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  .glance .g .gv{font-size:14px;margin-top:3px;color:#10243a;font-weight:650;line-height:1.35}
+  .glance .g .gs{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .layerchip,.avail{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;letter-spacing:.02em}
+  .layerchip{background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe}
+  .avail{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa}
+
+  /* pricing menu */
+  .menu{display:grid;gap:8px;margin-top:8px}
+  .mrow{display:flex;align-items:center;gap:11px;border:1px solid var(--line);border-radius:11px;padding:11px 13px;cursor:pointer;background:#fff;transition:border-color .12s}
+  .mrow:hover{border-color:var(--accent)}
+  .mrow input{accent-color:var(--accent);width:16px;height:16px}
+  .mrow .ml{font-size:13.5px;font-weight:600;color:#1e293b}
+  .mrow .mp{margin-left:auto;font-weight:750;color:var(--accent)}
+  .mbundle{border-style:dashed;background:#f0fdfa}
+  .mtotal{display:flex;align-items:center;margin-top:12px;font-weight:700;font-size:14px}
+  .mtotal .mt{margin-left:auto;font-size:22px;color:var(--accent)}
+  .notoffered{font-size:11.5px;color:var(--muted);margin-top:10px;border-top:1px dashed var(--line);padding-top:9px}
+  .notoffered b{color:#b91c1c}
+
+  /* discussion mode */
+  .discuss{margin:18px 0 0;border:1px solid var(--line);border-radius:16px;background:var(--card);box-shadow:var(--shadow);padding:16px;display:none}
+  .discuss h3{margin:0 0 4px;font-size:16px}
+  .dmsgs{display:flex;flex-direction:column;gap:10px;max-height:400px;overflow:auto;padding:6px 2px;margin-top:10px}
+  .dmsg{max-width:88%;padding:10px 13px;border-radius:13px;font-size:13.8px;line-height:1.5;white-space:pre-wrap}
+  .dmsg.user{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+  .dmsg.bot{align-self:flex-start;background:#f1f5f9;color:#1e293b;border-bottom-left-radius:4px}
+  .dinrow{display:flex;gap:8px;margin-top:12px}
+  .dinrow input{flex:1;border:1px solid var(--line);border-radius:11px;padding:11px 13px;font:inherit;background:#fcfdfe}
+  .dinrow input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+
+  /* novelty */
+  .novlist{display:grid;gap:8px;margin-top:6px}
+  .novrow{border:1px solid var(--line);border-radius:11px;padding:10px 13px;background:#fbfdfe}
+  .novrow .nt{font-size:13.5px;font-weight:600;color:#10243a;line-height:1.4}
+  .novrow .nm{font-size:12px;color:var(--muted);margin-top:3px}
+  .novassess{border-radius:11px;padding:11px 13px;margin-bottom:8px;font-size:13.5px;line-height:1.5}
+  .na-likely_done{background:var(--red-bg);border:1px solid var(--red-line);color:#7f1d1d}
+  .na-partially_addressed{background:var(--amber-bg);border:1px solid var(--amber-line);color:#7c2d12}
+  .na-appears_novel{background:var(--green-bg);border:1px solid var(--green-line);color:#14532d}
+  .na-uncertain{background:var(--slate-bg);border:1px solid var(--slate-line);color:#334155}
+
+  /* ===================== Apple-esque refinement ===================== */
+  :root{
+    --bg:#fbfbfd; --card:#ffffff; --ink:#1d1d1f; --muted:#6e6e73; --line:#e4e4e9;
+    --accent:#0a7d74; --accent-2:#0a6a62; --accent-soft:#e3f4f1;
+    --green:#1c7d3f; --green-bg:#eef9f1; --green-line:#cbe9d3;
+    --amber:#9a6212; --amber-bg:#fdf6ea; --amber-line:#f0e0bf;
+    --red:#c0392b; --red-bg:#fdf0ee; --red-line:#f4d3cd;
+    --slate:#5b6573; --slate-bg:#f3f4f6; --slate-line:#dfe2e7;
+    --shadow:0 1px 1px rgba(0,0,0,.03),0 14px 44px rgba(0,0,0,.07);
+    --radius:22px;
+  }
+  *{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  body{background:linear-gradient(180deg,#ffffff 0%,#f4f5f7 100%);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;letter-spacing:-.011em}
+  .wrap{max-width:824px;padding:58px 24px 110px}
+  header.brand{gap:15px;align-items:center}
+  .logo{width:44px;height:44px}
+  .brand h1{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;font-size:30px;font-weight:700;letter-spacing:-.03em}
+  .brand .sub{font-size:15px;color:var(--muted);letter-spacing:-.01em;margin-top:3px}
+  .modebadge{font-size:12px;font-weight:550;border-radius:999px;background:rgba(255,255,255,.65);
+    -webkit-backdrop-filter:saturate(180%) blur(14px);backdrop-filter:saturate(180%) blur(14px);border:1px solid var(--line);box-shadow:none}
+  .modebadge.ai{color:var(--accent);background:var(--accent-soft);border-color:transparent}
+  .tagline{font-size:17px;line-height:1.6;color:#3a3a3c;background:transparent;border:0;box-shadow:none;padding:8px 2px 0;margin:24px 0 30px}
+  .tagline b{color:var(--ink);font-weight:600}
+  .panel{border-radius:var(--radius);padding:26px;background:rgba(255,255,255,.74);
+    -webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border:1px solid rgba(0,0,0,.06);box-shadow:var(--shadow)}
+  label.lbl{font-size:11.5px;letter-spacing:.03em;color:var(--muted)}
+  textarea{border-radius:15px;border:1px solid var(--line);background:#fff;font-size:17px;padding:15px 16px;line-height:1.45}
+  textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+  button.go,.btn-pay{background:var(--accent);border-radius:980px;padding:12px 22px;font-weight:580;font-size:15px;letter-spacing:-.01em;box-shadow:none;transition:background .15s ease,transform .1s ease}
+  button.go:hover,.btn-pay:hover{background:var(--accent-2);transform:translateY(-1px)}
+  .btn-ghost{border-radius:980px;border:1px solid var(--line);background:#fff;font-weight:550;padding:11px 18px;color:#1d1d1f}
+  .btn-ghost:hover{background:#f5f5f7;border-color:#cfcfd6;color:var(--ink);transform:none}
+  .btn-mini{border-radius:980px;padding:8px 15px;font-weight:550}
+  .btn-mini:hover{transform:none;background:#f5f5f7}
+  .chip{border-radius:980px;background:#fff;border:1px solid var(--line);padding:8px 14px;font-size:13.5px;color:#3a3a3c}
+  .chip:hover{background:#f5f5f7;border-color:#cfcfd6;color:var(--ink)}
+  .hint{font-size:12.5px;color:var(--muted)}
+  .verdict{border-radius:var(--radius);padding:26px 28px;border:1px solid rgba(0,0,0,.05);box-shadow:var(--shadow)}
+  .verdict::before{display:none}
+  .verdict h2{font-size:23px;letter-spacing:-.022em;font-weight:680}
+  .vbadge{border-radius:980px;font-weight:650;letter-spacing:.03em}
+  .verdict p.reason{font-size:16px;line-height:1.6;color:#3a3a3c}
+  .seclabel{font-size:11.5px;letter-spacing:.04em;color:var(--muted);margin:30px 0 12px}
+  .tagchip{border-radius:980px}
+  .crow{border-radius:16px;border-color:var(--line)}
+  .crow:hover{border-color:#cfcfd6;box-shadow:0 8px 24px rgba(0,0,0,.05)}
+  .pill{border-radius:980px}
+  details.card{border-radius:18px;border-color:rgba(0,0,0,.06);box-shadow:var(--shadow)}
+  .glance .g{border-radius:16px;background:#fff;border-color:var(--line)}
+  .toolkit,.helper,.discuss{border-radius:18px;box-shadow:var(--shadow);border-color:rgba(0,0,0,.06)}
+  .mrow{border-radius:14px;border-color:var(--line)}
+  .mrow:hover{background:#f9f9fb}
+  .mtotal .mt{font-weight:700;letter-spacing:-.01em}
+  .sugq{border-radius:14px}
+  .plotcard{border-radius:16px}
+  .filerow{border-radius:12px}
+  .ideacard{border-radius:14px}
+  .modal{-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);background:rgba(0,0,0,.3)}
+  .modal .box{border-radius:26px;padding:30px;box-shadow:0 30px 90px rgba(0,0,0,.35)}
+  .modal .price{font-weight:700;letter-spacing:-.02em}
+  .dmsg{border-radius:18px;font-size:14px}
+  .dmsg.user{background:var(--accent)}
+  .dinrow input{border-radius:980px;padding:12px 16px}
+  footer{font-size:12.5px;color:var(--muted);margin-top:46px}
+  @media (max-width:560px){ .glance,.peco,.ff{grid-template-columns:1fr} .wrap{padding:40px 16px 90px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="brand">
+    <svg class="logo" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+      <circle cx="24" cy="24" r="9" fill="#0f766e"/>
+      <circle cx="24" cy="24" r="9" stroke="#0f766e" stroke-opacity=".25" stroke-width="6"/>
+      <g stroke="#0f766e" stroke-width="2.4" stroke-linecap="round">
+        <path d="M5 9 L15 17"/><path d="M5 24 L13 24"/><path d="M5 39 L15 31"/>
+        <path d="M43 9 L33 17"/><path d="M43 24 L35 24"/><path d="M43 39 L33 31"/>
+      </g>
+      <g fill="#0f766e">
+        <circle cx="15" cy="17" r="2"/><circle cx="13" cy="24" r="2"/><circle cx="15" cy="31" r="2"/>
+        <circle cx="33" cy="17" r="2"/><circle cx="35" cy="24" r="2"/><circle cx="33" cy="31" r="2"/>
+      </g>
+    </svg>
+    <div>
+      <h1>Afferent Intelligence</h1>
+      <div class="sub">Research feasibility triage for VitalDB — before you spend months on it</div>
+    </div>
+    <span class="modebadge" id="modebadge"><span class="dot"></span>checking…</span>
+  </header>
+
+  <div class="tagline">
+    Describe a perioperative study question in plain English. Afferent decomposes it (<b>PECO</b>),
+    resolves the required variables against a <b>verified inventory</b> of what VitalDB actually
+    records, and returns a feasibility verdict. Its most valuable output is a <b>trustworthy&nbsp;“no.”</b>
+    The no-guessing rule means it never claims a variable exists unless the inventory confirms it.
+  </div>
+
+  <div class="panel">
+    <label class="lbl" for="q">Your research question</label>
+    <textarea id="q" placeholder="e.g. Can intraoperative burst suppression predict whether a patient develops delirium afterward?"></textarea>
+    <div class="row">
+      <button class="go" id="run">Check feasibility</button>
+      <button class="btn-ghost" id="discussbtn">💬 Discuss an idea</button>
+      <span class="hint">Single-center (SNUH) · intraoperative + in-hospital + &plusmn;90-day labs</span>
+    </div>
+    <div class="examples">
+      <div class="lbl">Try one</div>
+      <div class="chips" id="examples"></div>
+    </div>
+  </div>
+
+  <div class="discuss" id="discuss">
+    <h3>Idea discussion</h3>
+    <div style="font-size:13px;color:var(--muted)">Brainstorm and sharpen a question with a VitalDB-grounded partner. It points you toward variables the dataset actually has — and won't write your paper. When a question feels solid, run it through the feasibility check.</div>
+    <div class="dmsgs" id="dmsgs"></div>
+    <div class="dinrow">
+      <input type="text" id="dinput" placeholder="e.g. I'm interested in anesthesia depth and recovery — what's doable here?">
+      <button class="go" id="dsend">Send</button>
+    </div>
+  </div>
+
+  <details class="card" id="ideascard" style="display:none">
+    <summary>My ideas <span class="countbadge" id="ideacount">0</span></summary>
+    <div class="inner" id="ideasbody"></div>
+  </details>
+
+  <div id="result"></div>
+
+  <details class="card" id="profilecard">
+    <summary>VitalDB dataset profile</summary>
+    <div class="inner" id="profilebody"></div>
+  </details>
+
+  <details class="card">
+    <summary>How this works &amp; the no-guessing rule</summary>
+    <div class="inner">
+      <ol>
+        <li><b>Decompose</b> (inference) — your question becomes PECO and a list of required clinical concepts.
+            In AI mode this is done by the model so it handles free-form phrasing; offline, a keyword matcher does it.</li>
+        <li><b>Resolve</b> (verified facts) — each concept is checked against the inventory:
+            <span class="mono">CONFIRMED</span>, <span class="mono">CONFIRMED_ABSENT</span>, or <span class="mono">NOT_IN_INVENTORY</span>.
+            <b>Status comes only from the inventory, never from the model</b> — that is the no-guessing rule.</li>
+        <li><b>Verdict</b> — any confirmed-absent concept &rarr; <b>NOT_FEASIBLE</b>; anything unverified &rarr;
+            <b>INSUFFICIENT_INFO</b>; otherwise <b>FEASIBLE</b> / <b>FEASIBLE_WITH_CAVEATS</b>.</li>
+      </ol>
+      <p>Inference (PECO, suggested reframes) and verified facts (the inventory truth table) are shown in
+      separate sections on purpose — the engine's trust comes from never blurring the two.</p>
+      <p><b>Source:</b> VitalDB data descriptor (Lee et&nbsp;al., <i>Scientific Data</i> 2022) and PhysioNet
+      vitaldb 1.0.0. Inventory: <span id="ic"></span> concepts catalogued.</p>
+    </div>
+  </details>
+
+  <footer>
+    Afferent Intelligence · feasibility triage, not clinical advice.<br/>
+    A confident <span class="nope">“no”</span> that saves a doomed protocol is the product.
+  </footer>
+</div>
+
+<script>
+const ENTRIES = [{"id": "bis_index", "name": "BIS (Bispectral Index)", "aliases": ["bis", "bispectral_index", "depth_of_anesthesia", "anesthetic_depth"], "status": "CONFIRMED", "category": "signal", "confidence": "high", "track": "BIS/BIS", "units": "index 0-100", "missingness": "Device-dependent: present only for cases monitored with a BIS Vista module (a subset of cases). Gaps during electrocautery/probe repositioning; absent pre-induction and post-emergence.", "common_mistakes": "Assuming every case has BIS. Filter by track availability and power on the BIS subset, not all 6,388 cases."}, {"id": "bis_suppression_ratio", "name": "Suppression Ratio (burst suppression)", "aliases": ["suppression_ratio", "sr", "burst_suppression", "burst_suppression_ratio", "eeg_suppression"], "status": "CONFIRMED", "category": "signal", "confidence": "high", "track": "BIS/SR", "units": "percent (0-100)", "missingness": "Available only when a BIS module was used (same subset as BIS). Derived EEG metric, not raw-EEG adjudication; sparse relative to raw EEG.", "common_mistakes": "Treating SR>0 as a validated burst-suppression label, and (critically) assuming a downstream NEUROLOGIC OUTCOME exists to relate it to. The exposure is here; ward outcomes like delirium/POCD are not."}, {"id": "raw_eeg", "name": "Raw EEG (BIS channel)", "aliases": ["eeg", "raw_eeg", "bis_eeg"], "status": "CONFIRMED", "category": "signal", "confidence": "high", "track": "BIS/EEG", "units": "uV waveform (~128 Hz)", "missingness": "Single/limited-channel processed-EEG from the BIS module only; not full multichannel clinical EEG. BIS-subset only.", "common_mistakes": "Expecting montage-grade multichannel EEG; this is the BIS device channel."}, {"id": "arterial_waveform", "name": "Arterial pressure waveform (invasive)", "aliases": ["arterial_waveform", "art_waveform", "arterial_line", "abp_waveform", "invasive_bp_waveform"], "status": "CONFIRMED", "category": "signal", "confidence": "high", "track": "SNUADC/ART", "units": "mmHg waveform (500 Hz)", "missingness": "Present only for cases with an arterial line (higher-acuity surgery). Many minor/ambulatory cases have only intermittent NIBP. Damping/flush artifacts.", "common_mistakes": "Assuming arterial waveforms exist for all cases; they concentrate in major surgery."}, {"id": "ecg_waveform", "name": "ECG waveform", "aliases": ["ecg", "ecg_waveform", "ekg", "electrocardiogram"], "status": "CONFIRMED", "category": "signal", "confidence": "high", "track": "SNUADC/ECG_II", "units": "mV waveform (500 Hz)", "missingness": "Generally present intraoperatively; lead noise/disconnect gaps. Lead II primarily.", "common_mistakes": "Expecting diagnostic 12-lead ECG; this is monitoring-lead continuous ECG."}, {"id": "plethysmograph", "name": "Photoplethysmogram (PPG)", "aliases": ["ppg", "pleth", "plethysmogram", "photoplethysmography", "pulse_waveform"], "status": "CONFIRMED", "category": "signal", "confidence": "high", "track": "SNUADC/PLETH", "units": "waveform (500 Hz)", "missingness": "Fingertip PPG; motion/low-perfusion artifact. Present for most cases.", "common_mistakes": "Treating PPG amplitude as calibrated; it is relative and device/probe dependent."}, {"id": "mean_arterial_pressure", "name": "Mean Arterial Pressure (MAP)", "aliases": ["map", "mean_arterial_pressure", "mean_bp", "mbp", "art_mbp", "intraoperative_hypotension", "hypotension"], "status": "CONFIRMED", "category": "hemodynamic", "confidence": "high", "track": "Solar8000/ART_MBP (invasive) or Solar8000/NIBP_MBP (cuff)", "units": "mmHg", "missingness": "Invasive MBP needs an arterial line (~1-2 s); non-invasive MBP is intermittent (every few min). Choose the source matching your hypotension definition.", "common_mistakes": "Mixing invasive and cuff MAP sources with different sampling rates/bias, producing an inconsistent hypotension exposure."}, {"id": "blood_pressure", "name": "Systolic / diastolic blood pressure", "aliases": ["blood_pressure", "systolic_bp", "diastolic_bp", "sbp", "dbp", "nibp"], "status": "CONFIRMED", "category": "hemodynamic", "confidence": "high", "track": "Solar8000/ART_SBP, ART_DBP, NIBP_SBP, NIBP_DBP", "units": "mmHg", "missingness": "Invasive vs non-invasive sources differ in cadence and availability as with MAP.", "common_mistakes": "Conflating invasive and cuff systolic/diastolic series."}, {"id": "heart_rate", "name": "Heart Rate (HR)", "aliases": ["hr", "heart_rate", "pulse_rate"], "status": "CONFIRMED", "category": "hemodynamic", "confidence": "high", "track": "Solar8000/HR", "units": "beats/min", "missingness": "Well populated intraoperatively; brief ECG-artifact gaps.", "common_mistakes": "Confusing monitor HR with PPG-derived pulse rate during artifact."}, {"id": "spo2", "name": "Peripheral oxygen saturation (SpO2)", "aliases": ["spo2", "oxygen_saturation", "pulse_oximetry", "o2_sat", "desaturation"], "status": "CONFIRMED", "category": "respiratory", "confidence": "high", "track": "Solar8000/PLETH_SPO2", "units": "percent", "missingness": "Well populated intraoperatively; motion/low-perfusion artifact causes spurious drops.", "common_mistakes": "Counting artifactual transient drops as desaturation without artifact rejection."}, {"id": "etco2", "name": "End-tidal CO2 (EtCO2)", "aliases": ["etco2", "end_tidal_co2", "capnography", "et_co2"], "status": "CONFIRMED", "category": "respiratory", "confidence": "high", "track": "Solar8000/ETCO2 or Primus/ETCO2", "units": "mmHg", "missingness": "Valid only during the intubated/ventilated window; absent before intubation and after extubation.", "common_mistakes": "Assuming a continuous EtCO2 trace across the whole case."}, {"id": "respiratory_rate", "name": "Respiratory rate", "aliases": ["respiratory_rate", "rr", "resp_rate"], "status": "CONFIRMED", "category": "respiratory", "confidence": "high", "track": "Solar8000/RR (or Primus/RR_CO2)", "units": "breaths/min", "missingness": "Ventilator-set vs measured RR differ; meaningful mainly during controlled ventilation.", "common_mistakes": "Mixing set and spontaneous RR."}, {"id": "body_temperature", "name": "Body temperature", "aliases": ["body_temperature", "temperature", "temp", "core_temperature", "hypothermia"], "status": "CONFIRMED", "category": "hemodynamic", "confidence": "medium", "track": "Solar8000/BT", "units": "degC", "missingness": "Present when a temperature probe was used; site (esophageal/nasopharyngeal/skin) not always specified and coverage is partial.", "common_mistakes": "Treating all temperature traces as core temperature regardless of probe site."}, {"id": "tidal_volume", "name": "Tidal volume (ventilator)", "aliases": ["tidal_volume", "tv", "vt", "ventilator_tidal_volume", "expired_tidal_volume"], "status": "CONFIRMED", "category": "respiratory", "confidence": "high", "track": "Primus/TV", "units": "mL", "missingness": "Only during mechanical ventilation from the anesthesia machine; absent for spontaneous/mask cases and outside the ventilated window.", "common_mistakes": "Using tidal volume as if it spans the whole case."}, {"id": "airway_pressure", "name": "Airway pressure (peak/PEEP/plateau)", "aliases": ["airway_pressure", "peak_pressure", "pip", "peep", "plateau_pressure", "paw"], "status": "CONFIRMED", "category": "respiratory", "confidence": "high", "track": "Primus/PIP, Primus/PEEP, Primus/PAW_MEAN", "units": "cmH2O", "missingness": "Ventilated window only; machine-track dependent.", "common_mistakes": "Assuming driving pressure is provided directly; it must be derived (plateau - PEEP)."}, {"id": "anesthetic_agent_concentration", "name": "Inspired/expired volatile anesthetic concentration", "aliases": ["anesthetic_agent_concentration", "sevoflurane", "desflurane", "mac", "end_tidal_agent", "volatile_concentration"], "status": "CONFIRMED", "category": "respiratory", "confidence": "high", "track": "Primus/INSP_SEVO, Primus/EXP_SEVO, Primus/INSP_DES, Primus/EXP_DES, Primus/MAC", "units": "vol% (MAC unitless)", "missingness": "Volatile-anesthetic cases only; TIVA (propofol) cases have no agent gas concentration.", "common_mistakes": "Expecting volatile concentrations for TIVA cases; use Orchestra TCI tracks there instead."}, {"id": "fio2", "name": "Inspired oxygen fraction (FiO2)", "aliases": ["fio2", "inspired_oxygen", "inspired_o2"], "status": "CONFIRMED", "category": "respiratory", "confidence": "high", "track": "Primus/FIO2", "units": "fraction/percent", "missingness": "Anesthesia-machine ventilated window only.", "common_mistakes": "Confusing inspired vs expired O2 tracks."}, {"id": "cardiac_output", "name": "Cardiac output / index", "aliases": ["cardiac_output", "co", "cardiac_index", "ci", "low_cardiac_output"], "status": "CONFIRMED", "category": "hemodynamic", "confidence": "medium", "track": "EV1000/CO, Vigileo/CO, Vigilance/CO (also CardioQ)", "units": "L/min (CI: L/min/m2)", "missingness": "Device-dependent and present only for cases monitored with an advanced hemodynamic monitor (a small subset). Different devices/algorithms are not interchangeable.", "common_mistakes": "Pooling CO across EV1000/Vigileo/CardioQ as if calibrated identically; and assuming most cases have any CO monitor (few do)."}, {"id": "stroke_volume_variation", "name": "Stroke volume variation / fluid responsiveness indices", "aliases": ["stroke_volume_variation", "svv", "ppv", "stroke_volume", "sv"], "status": "CONFIRMED", "category": "hemodynamic", "confidence": "medium", "track": "EV1000/SVV, Vigileo/SVV, EV1000/SV", "units": "percent (SVV); mL (SV)", "missingness": "Advanced-monitor subset only.", "common_mistakes": "Assuming SVV validity outside controlled ventilation / fixed tidal volume conditions."}, {"id": "cerebral_oximetry", "name": "Cerebral oxygen saturation (NIRS)", "aliases": ["cerebral_oximetry", "nirs", "rso2", "scto2", "cerebral_oxygenation", "invos"], "status": "CONFIRMED", "category": "signal", "confidence": "medium", "track": "INVOS/SCO2_L, INVOS/SCO2_R", "units": "percent", "missingness": "INVOS device subset only (selected cases, e.g. cardiac/major surgery).", "common_mistakes": "Assuming broad availability; NIRS is used in a minority of cases."}, {"id": "tci_concentration", "name": "Target-controlled infusion concentrations (propofol/remifentanil)", "aliases": ["tci_concentration", "tci", "effect_site_concentration", "propofol_concentration", "remifentanil_concentration", "infusion_rate"], "status": "CONFIRMED", "category": "signal", "confidence": "medium", "track": "Orchestra/PPF20_CE, Orchestra/PPF20_CP, Orchestra/RFTN20_CE, Orchestra/*_RATE", "units": "mcg/mL or ng/mL (CE/CP); mL/h (rate)", "missingness": "Orchestra pump subset (TIVA/TCI cases). Plasma (CP) and effect-site (CE) are model estimates, not measured concentrations.", "common_mistakes": "Treating modeled effect-site concentration as a measured drug level."}, {"id": "age", "name": "Age", "aliases": ["age", "patient_age"], "status": "CONFIRMED", "category": "demographic", "confidence": "high", "track": "clinical_info.age", "units": "years", "missingness": "Near-complete per-case column. Adult-dominant cohort; limited pediatric coverage.", "common_mistakes": "Assuming wide pediatric range."}, {"id": "sex", "name": "Sex", "aliases": ["sex", "gender", "patient_sex"], "status": "CONFIRMED", "category": "demographic", "confidence": "high", "track": "clinical_info.sex", "units": "M/F", "missingness": "Near-complete. Recorded natal sex.", "common_mistakes": "Interpreting as gender identity."}, {"id": "height", "name": "Height", "aliases": ["height", "patient_height", "stature"], "status": "CONFIRMED", "category": "demographic", "confidence": "high", "track": "clinical_info.height", "units": "cm", "missingness": "Mostly complete.", "common_mistakes": "None major; pair with weight for BMI."}, {"id": "weight", "name": "Weight", "aliases": ["weight", "body_weight", "patient_weight"], "status": "CONFIRMED", "category": "demographic", "confidence": "high", "track": "clinical_info.weight", "units": "kg", "missingness": "Mostly complete.", "common_mistakes": "None major."}, {"id": "bmi", "name": "Body mass index", "aliases": ["bmi", "body_mass_index", "obesity"], "status": "CONFIRMED", "category": "demographic", "confidence": "high", "track": "clinical_info.bmi", "units": "kg/m2", "missingness": "Provided per case (also derivable from height/weight).", "common_mistakes": "Using BMI as a proxy for body composition in a single-center Korean cohort without considering distribution differences."}, {"id": "asa_class", "name": "ASA physical status classification", "aliases": ["asa", "asa_class", "asa_ps", "asa_physical_status"], "status": "CONFIRMED", "category": "demographic", "confidence": "high", "track": "clinical_info.asa", "units": "ordinal 1-6", "missingness": "Mostly complete; skews ASA 1-3 (elective population).", "common_mistakes": "Treating ASA as a precise severity score."}, {"id": "emergency_surgery", "name": "Emergency surgery flag", "aliases": ["emergency_surgery", "emop", "emergency", "urgency"], "status": "CONFIRMED", "category": "demographic", "confidence": "high", "track": "clinical_info.emop", "units": "boolean", "missingness": "Per-case flag; emergency cases are a minority.", "common_mistakes": "Assuming a graded urgency scale; this is a binary flag."}, {"id": "anesthesia_type", "name": "Type of anesthesia", "aliases": ["anesthesia_type", "ane_type", "general_anesthesia", "regional_anesthesia", "tiva"], "status": "CONFIRMED", "category": "demographic", "confidence": "high", "track": "clinical_info.ane_type", "units": "categorical", "missingness": "Per-case category (e.g. general, spinal/regional).", "common_mistakes": "Assuming TIVA vs volatile is directly coded here; infer from drug/agent tracks too."}, {"id": "surgery_type", "name": "Surgery type / operation / department / diagnosis", "aliases": ["surgery_type", "operation", "procedure", "optype", "opname", "surgical_procedure", "department", "diagnosis", "dx"], "status": "CONFIRMED", "category": "demographic", "confidence": "high", "track": "clinical_info.optype, opname, department, dx", "units": "categorical / free text", "missingness": "'optype' coarse category, 'opname'/'dx' free text, 'department' surgical service. Single-center case mix; some categories sparse.", "common_mistakes": "Assuming standardized coding (CPT/ICD-PCS); harmonization of free-text fields is manual."}, {"id": "surgical_approach_position", "name": "Surgical approach and patient position", "aliases": ["surgical_approach", "approach", "position", "surgical_position"], "status": "CONFIRMED", "category": "demographic", "confidence": "high", "track": "clinical_info.approach, clinical_info.position", "units": "categorical", "missingness": "Per-case categories (e.g. open/laparoscopic; supine/prone/lateral).", "common_mistakes": "Sparse categories for uncommon approaches/positions."}, {"id": "estimated_blood_loss", "name": "Estimated blood loss", "aliases": ["estimated_blood_loss", "ebl", "intraop_ebl", "blood_loss"], "status": "CONFIRMED", "category": "intraoperative", "confidence": "medium", "track": "clinical_info.intraop_ebl", "units": "mL", "missingness": "Clinician-estimated case total, not a time series; known to be imprecise.", "common_mistakes": "Treating EBL as an accurate continuous measurement."}, {"id": "urine_output", "name": "Intraoperative urine output", "aliases": ["urine_output", "intraop_uo", "uo", "urine"], "status": "CONFIRMED", "category": "intraoperative", "confidence": "medium", "track": "clinical_info.intraop_uo", "units": "mL", "missingness": "Case total; recorded mainly when a urinary catheter was placed.", "common_mistakes": "Using intraoperative UO as a renal-outcome endpoint; pair with postoperative creatinine for AKI."}, {"id": "transfusion", "name": "Intraoperative transfusion (RBC/FFP)", "aliases": ["transfusion", "rbc_transfusion", "intraop_rbc", "ffp_transfusion", "intraop_ffp", "blood_products"], "status": "CONFIRMED", "category": "intraoperative", "confidence": "high", "track": "clinical_info.intraop_rbc, clinical_info.intraop_ffp", "units": "units", "missingness": "Case totals (units). Platelets/cryoprecipitate not separately columned.", "common_mistakes": "Assuming all blood-product types are itemized; only RBC and FFP are."}, {"id": "fluid_administration", "name": "Intraoperative crystalloid/colloid volume", "aliases": ["fluid_administration", "crystalloid", "intraop_crystalloid", "colloid", "intraop_colloid", "fluids"], "status": "CONFIRMED", "category": "intraoperative", "confidence": "high", "track": "clinical_info.intraop_crystalloid, clinical_info.intraop_colloid", "units": "mL", "missingness": "Case totals, not time-resolved infusion curves.", "common_mistakes": "Expecting time-stamped fluid boluses; only totals are provided."}, {"id": "vasopressor_dose", "name": "Intraoperative vasopressor/inotrope bolus dose", "aliases": ["vasopressor_dose", "phenylephrine", "ephedrine", "epinephrine", "intraop_phe", "intraop_eph", "intraop_epi"], "status": "CONFIRMED", "category": "intraoperative", "confidence": "high", "track": "clinical_info.intraop_phe, intraop_eph, intraop_epi", "units": "mcg or mg", "missingness": "Case-total bolus doses; continuous infusions of some agents may instead appear in Orchestra pump tracks.", "common_mistakes": "Treating bolus-dose totals as continuous infusion exposure."}, {"id": "anesthetic_drug_dose", "name": "Intraoperative anesthetic/relaxant bolus dose", "aliases": ["anesthetic_drug_dose", "propofol_dose", "intraop_ppf", "midazolam", "intraop_mdz", "fentanyl", "intraop_ftn", "rocuronium", "intraop_rocu", "vecuronium", "intraop_vecu"], "status": "CONFIRMED", "category": "intraoperative", "confidence": "high", "track": "clinical_info.intraop_ppf, intraop_mdz, intraop_ftn, intraop_rocu, intraop_vecu", "units": "mg or mcg", "missingness": "Case-total bolus doses. TCI/continuous propofol/remifentanil appear in Orchestra tracks, not here.", "common_mistakes": "Summing bolus totals with TCI exposure without reconciling the two sources."}, {"id": "preop_comorbidity", "name": "Preoperative comorbidity flags (HTN/DM/arrhythmia/PFT)", "aliases": ["preop_comorbidity", "preop_htn", "hypertension_history", "preop_dm", "diabetes_history", "preop_arrhythmia", "preop_pft"], "status": "CONFIRMED", "category": "demographic", "confidence": "medium", "track": "clinical_info.preop_htn, preop_dm, preop_arrhythmia, preop_pft", "units": "boolean / PFT result", "missingness": "Limited comorbidity set only (hypertension, diabetes, ECG arrhythmia, pulmonary function). No structured Charlson/full problem list.", "common_mistakes": "Expecting a complete comorbidity index; only these few flags exist, so confounder adjustment is limited."}, {"id": "preoperative_labs", "name": "Preoperative laboratory panel", "aliases": ["preoperative_labs", "preop_labs", "preop_hb", "preop_cr", "preop_creatinine", "preop_na", "preop_k", "preop_albumin", "preop_alb", "baseline_labs"], "status": "CONFIRMED", "category": "laboratory", "confidence": "high", "track": "clinical_info.preop_* (hb, plt, pt, aptt, na, k, gluc, alb, ast, alt, bun, cr, ph, hco3, be, pao2, paco2, sao2)", "units": "varies", "missingness": "Per-case preoperative values; some labs missing when not ordered. Baseline creatinine (preop_cr) available for AKI baselines.", "common_mistakes": "Assuming every preop lab is present for every case."}, {"id": "laboratory_timeseries", "name": "Perioperative laboratory time-series (34 tests, -90 to +90 days)", "aliases": ["laboratory_results", "lab_results", "labs", "lab_timeseries", "postoperative_labs", "postop_labs"], "status": "CONFIRMED", "category": "laboratory", "confidence": "high", "track": "lab_data (name/dt/result): wbc, hb, hct, plt, esr, gluc, tprot, alb, tbil, ast, alt, bun, cr, gfr, ccr, na, k, ica, cl, ammo, crp, lac, ptinr, pt%, ptsec, aptt, fib, ph, pco2, po2, hco3, be, sao2", "units": "varies", "missingness": "Irregular, order-driven sampling (NOT fixed schedule). Window is -90 to +90 days around anesthesia start, so POSTOPERATIVE labs exist but only when clinically ordered; many cases have few or no postop draws. Coverage thins with distance from surgery.", "common_mistakes": "Assuming dense, scheduled postoperative labs. Sampling is sparse and informative-missing (sicker patients get more draws); a postop value's ABSENCE is not random."}, {"id": "postoperative_creatinine", "name": "Postoperative creatinine (for AKI)", "aliases": ["postoperative_creatinine", "postop_creatinine", "postop_cr", "creatinine", "serum_creatinine"], "status": "CONFIRMED", "category": "laboratory", "confidence": "medium", "track": "lab_data name='cr' (+ baseline clinical_info.preop_cr; gfr/ccr also available)", "units": "mg/dL", "missingness": "Present within the +/-90-day lab window BUT only when creatinine was ordered postoperatively. Many cases lack postop draws, so an AKI cohort is a SELECTED subset, not all 6,388.", "common_mistakes": "Assuming KDIGO-grade AKI ascertainment for everyone. You can DERIVE an AKI endpoint from pre/post creatinine where draws exist, but there is no pre-labeled AKI field and the urine-output KDIGO criterion is not reliably available postoperatively."}, {"id": "in_hospital_mortality", "name": "In-hospital mortality", "aliases": ["in_hospital_mortality", "death_inhosp", "inhospital_death", "operative_mortality", "in_hospital_death"], "status": "CONFIRMED", "category": "outcome", "confidence": "high", "track": "clinical_info.death_inhosp", "units": "boolean", "missingness": "Captures death during the index hospitalization only. Events are rare (low base rate) -> limited power for mortality models.", "common_mistakes": "Equating in-hospital mortality with 30-day or post-discharge mortality; a patient who dies after discharge is recorded as alive. Use in_hospital_mortality only for in-hospital death endpoints."}, {"id": "icu_length_of_stay", "name": "ICU length of stay", "aliases": ["icu_length_of_stay", "icu_days", "icu_los", "icu_stay"], "status": "CONFIRMED", "category": "outcome", "confidence": "high", "track": "clinical_info.icu_days", "units": "days", "missingness": "Postoperative ICU days. Zero for non-ICU cases; right-skewed.", "common_mistakes": "Treating ICU days as ICU admission yes/no without checking zeros, or as a quality metric without case-mix adjustment."}, {"id": "hospital_length_of_stay", "name": "Hospital length of stay", "aliases": ["hospital_length_of_stay", "hospital_los", "los", "length_of_stay", "los_postop"], "status": "CONFIRMED", "category": "outcome", "confidence": "medium", "track": "derived from clinical_info.adm and clinical_info.dis (admission/discharge times)", "units": "days", "missingness": "Not a pre-computed column; compute from discharge minus admission. Single-center discharge practices.", "common_mistakes": "Expecting a ready-made LOS field; it must be derived from adm/dis timestamps."}, {"id": "postoperative_delirium", "name": "Postoperative delirium", "aliases": ["postoperative_delirium", "delirium", "post_op_delirium", "pod", "cam_icu", "emergence_delirium_followup"], "status": "CONFIRMED_ABSENT", "category": "outcome", "confidence": "high", "track": null, "units": null, "missingness": "Not collected. Delirium requires structured ward assessments (CAM/CAM-ICU/3D-CAM, DSM-5) over postoperative days 1-5. VitalDB has no ward-course or delirium-screening data; its postoperative footprint is lab draws and a few in-hospital outcome fields only.", "common_mistakes": "Assuming an intraoperative EEG/BIS signal substitutes for a delirium label. Burst suppression is an intraoperative EXPOSURE; delirium is a structured ward OUTCOME VitalDB does not record. The study cannot be done in VitalDB alone."}, {"id": "pocd", "name": "Postoperative cognitive dysfunction (POCD)", "aliases": ["pocd", "postoperative_cognitive_dysfunction", "cognitive_decline", "neurocognitive_disorder", "cognitive_testing"], "status": "CONFIRMED_ABSENT", "category": "outcome", "confidence": "high", "track": null, "units": null, "missingness": "Not collected. POCD requires baseline and follow-up neuropsychological testing (weeks-months postop). VitalDB has no cognitive testing and no post-discharge follow-up.", "common_mistakes": "Conflating intraoperative depth-of-anesthesia signals with a downstream cognitive outcome that is never ascertained here."}, {"id": "mortality_30day", "name": "30-day (post-discharge) mortality", "aliases": ["mortality_30day", "30_day_mortality", "thirty_day_mortality", "postoperative_mortality", "death_30d", "90_day_mortality", "long_term_mortality"], "status": "CONFIRMED_ABSENT", "category": "outcome", "confidence": "high", "track": null, "units": null, "missingness": "Not collected as specified. VitalDB records IN-HOSPITAL mortality (death_inhosp) only; there is no post-discharge vital-status follow-up or death-registry linkage, so a patient discharged alive then dying by day 30 is not captured.", "common_mistakes": "Using in-hospital mortality as if it were 30-day mortality. They differ materially (short LOS misses post-discharge deaths). If your endpoint truly requires 30-day vital status, it is NOT feasible; if in-hospital death suffices, use 'in_hospital_mortality' instead."}, {"id": "readmission", "name": "Hospital readmission", "aliases": ["readmission", "30_day_readmission", "hospital_readmission", "unplanned_readmission"], "status": "CONFIRMED_ABSENT", "category": "outcome", "confidence": "high", "track": null, "units": null, "missingness": "Not collected. Readmission requires post-discharge encounter tracking. VitalDB ends at the index hospitalization with no longitudinal encounter history.", "common_mistakes": "Treating a single-encounter dataset as if it held the longitudinal admission history needed for readmission."}, {"id": "postoperative_pain", "name": "Postoperative pain scores (ward)", "aliases": ["postoperative_pain", "pain_score", "nrs_pain", "vas_pain", "ward_pain"], "status": "CONFIRMED_ABSENT", "category": "outcome", "confidence": "high", "track": null, "units": null, "missingness": "Not collected. Routine ward pain scores (NRS/VAS over postop days) are not part of the clinical-information table or any track.", "common_mistakes": "Assuming a perioperative dataset includes ward pain assessments; these structured nursing scores are absent."}, {"id": "ponv", "name": "Postoperative nausea and vomiting (ward)", "aliases": ["ponv", "postoperative_nausea", "nausea_vomiting", "antiemetic_outcome"], "status": "CONFIRMED_ABSENT", "category": "outcome", "confidence": "high", "track": null, "units": null, "missingness": "Not collected. PONV is a structured ward outcome not recorded in VitalDB.", "common_mistakes": "Inferring PONV from intraoperative antiemetic dosing; that is exposure, not outcome ascertainment."}, {"id": "genetic_data", "name": "Genetic / genomic data", "aliases": ["genetic_data", "genomics", "genotype", "snp", "pharmacogenomics", "genetic_markers", "dna"], "status": "CONFIRMED_ABSENT", "category": "outcome", "confidence": "high", "track": null, "units": null, "missingness": "Not collected. No biospecimens, genotyping, sequencing, or pharmacogenomic data of any kind.", "common_mistakes": "Assuming a rich physiologic dataset also carries molecular/genetic covariates. Any gene-environment or pharmacogenomic question is out of scope."}];
+const ALIASES = {"bis": "bis_index", "bis_index": "bis_index", "bispectral_index": "bis_index", "depth_of_anesthesia": "bis_index", "anesthetic_depth": "bis_index", "suppression_ratio": "bis_suppression_ratio", "sr": "bis_suppression_ratio", "burst_suppression": "bis_suppression_ratio", "burst_suppression_ratio": "bis_suppression_ratio", "eeg_suppression": "bis_suppression_ratio", "arterial_waveform": "arterial_waveform", "art_waveform": "arterial_waveform", "arterial_line": "arterial_waveform", "abp_waveform": "arterial_waveform", "invasive_bp_waveform": "arterial_waveform", "map": "mean_arterial_pressure", "mean_arterial_pressure": "mean_arterial_pressure", "mean_bp": "mean_arterial_pressure", "mbp": "mean_arterial_pressure", "intraoperative_hypotension": "mean_arterial_pressure", "hypotension": "mean_arterial_pressure", "hr": "heart_rate", "heart_rate": "heart_rate", "pulse_rate": "heart_rate", "ecg": "ecg_waveform", "ekg": "ecg_waveform", "ppg": "plethysmograph", "pleth": "plethysmograph", "blood_pressure": "blood_pressure", "systolic_bp": "blood_pressure", "diastolic_bp": "blood_pressure", "raw_eeg": "raw_eeg", "eeg": "raw_eeg", "cardiac_output": "cardiac_output", "cardiac_index": "cardiac_output", "low_cardiac_output": "cardiac_output", "stroke_volume_variation": "stroke_volume_variation", "svv": "stroke_volume_variation", "cerebral_oximetry": "cerebral_oximetry", "nirs": "cerebral_oximetry", "tci": "tci_concentration", "effect_site_concentration": "tci_concentration", "body_temperature": "body_temperature", "temperature": "body_temperature", "hypothermia": "body_temperature", "spo2": "spo2", "oxygen_saturation": "spo2", "pulse_oximetry": "spo2", "o2_sat": "spo2", "desaturation": "spo2", "etco2": "etco2", "end_tidal_co2": "etco2", "capnography": "etco2", "respiratory_rate": "respiratory_rate", "tidal_volume": "tidal_volume", "tv": "tidal_volume", "vt": "tidal_volume", "ventilator_tidal_volume": "tidal_volume", "airway_pressure": "airway_pressure", "peak_pressure": "airway_pressure", "peep": "airway_pressure", "fio2": "fio2", "inspired_oxygen": "fio2", "sevoflurane": "anesthetic_agent_concentration", "desflurane": "anesthetic_agent_concentration", "mac": "anesthetic_agent_concentration", "volatile_concentration": "anesthetic_agent_concentration", "age": "age", "asa": "asa_class", "asa_class": "asa_class", "asa_physical_status": "asa_class", "sex": "sex", "gender": "sex", "height": "height", "weight": "weight", "bmi": "bmi", "obesity": "bmi", "emergency_surgery": "emergency_surgery", "emop": "emergency_surgery", "anesthesia_type": "anesthesia_type", "tiva": "anesthesia_type", "surgery_type": "surgery_type", "operation": "surgery_type", "procedure": "surgery_type", "optype": "surgery_type", "opname": "surgery_type", "department": "surgery_type", "diagnosis": "surgery_type", "surgical_approach": "surgical_approach_position", "position": "surgical_approach_position", "estimated_blood_loss": "estimated_blood_loss", "ebl": "estimated_blood_loss", "blood_loss": "estimated_blood_loss", "urine_output": "urine_output", "transfusion": "transfusion", "rbc_transfusion": "transfusion", "ffp_transfusion": "transfusion", "blood_products": "transfusion", "fluid_administration": "fluid_administration", "crystalloid": "fluid_administration", "colloid": "fluid_administration", "vasopressor_dose": "vasopressor_dose", "phenylephrine": "vasopressor_dose", "ephedrine": "vasopressor_dose", "epinephrine": "vasopressor_dose", "propofol_dose": "anesthetic_drug_dose", "fentanyl": "anesthetic_drug_dose", "rocuronium": "anesthetic_drug_dose", "preop_comorbidity": "preop_comorbidity", "hypertension_history": "preop_comorbidity", "diabetes_history": "preop_comorbidity", "preoperative_labs": "preoperative_labs", "preop_labs": "preoperative_labs", "baseline_creatinine": "preoperative_labs", "laboratory_results": "laboratory_timeseries", "labs": "laboratory_timeseries", "postoperative_labs": "laboratory_timeseries", "lactate": "laboratory_timeseries", "crp": "laboratory_timeseries", "hemoglobin": "laboratory_timeseries", "postoperative_creatinine": "postoperative_creatinine", "postop_creatinine": "postoperative_creatinine", "creatinine": "postoperative_creatinine", "postoperative_aki": "postoperative_creatinine", "aki": "postoperative_creatinine", "acute_kidney_injury": "postoperative_creatinine", "in_hospital_mortality": "in_hospital_mortality", "death_inhosp": "in_hospital_mortality", "operative_mortality": "in_hospital_mortality", "icu_length_of_stay": "icu_length_of_stay", "icu_days": "icu_length_of_stay", "icu_los": "icu_length_of_stay", "hospital_length_of_stay": "hospital_length_of_stay", "hospital_los": "hospital_length_of_stay", "los": "hospital_length_of_stay", "length_of_stay": "hospital_length_of_stay", "postoperative_delirium": "postoperative_delirium", "delirium": "postoperative_delirium", "post_op_delirium": "postoperative_delirium", "pod": "postoperative_delirium", "pocd": "pocd", "postoperative_cognitive_dysfunction": "pocd", "cognitive_decline": "pocd", "cognitive_testing": "pocd", "mortality_30day": "mortality_30day", "30_day_mortality": "mortality_30day", "thirty_day_mortality": "mortality_30day", "postoperative_mortality": "mortality_30day", "90_day_mortality": "mortality_30day", "long_term_mortality": "mortality_30day", "readmission": "readmission", "30_day_readmission": "readmission", "hospital_readmission": "readmission", "postoperative_pain": "postoperative_pain", "pain_score": "postoperative_pain", "nrs_pain": "postoperative_pain", "ponv": "ponv", "postoperative_nausea": "ponv", "genetic_data": "genetic_data", "genomics": "genetic_data", "genotype": "genetic_data", "pharmacogenomics": "genetic_data", "genetic_markers": "genetic_data"};
+const SCOPE   = {"center": "Seoul National University Hospital (single center)", "geography": "Seoul, South Korea", "intraoperative_tracks": true, "clinical_info_parameters": 74, "lab_timeseries_tests": 34, "lab_window": "-90 to +90 days around anesthesia start (postoperative labs ARE included)", "in_hospital_outcomes": ["death_inhosp (in-hospital mortality)", "icu_days (ICU length of stay)", "adm/dis (admission/discharge -> hospital LOS)"], "post_discharge_followup": false, "ward_structured_assessment": false, "readmission_tracking": false, "linkage_to_registries": false, "biospecimens_or_genetics": false, "n_cases_approx": 6388, "source": "Lee et al., Scientific Data 2022 (s41597-022-01411-5); PhysioNet vitaldb 1.0.0 lab_parameters.csv"};
+const SOURCE_URL = "https://www.nature.com/articles/s41597-022-01411-5";
+
+const EXAMPLES = [
+  "Can intraoperative burst suppression predict postoperative delirium?",
+  "Is intraoperative hypotension associated with postoperative acute kidney injury?",
+  "Does low intraoperative cardiac output predict in-hospital mortality?",
+  "Does intraoperative mean arterial pressure predict 30-day mortality?",
+  "Is ASA physical status associated with intraoperative oxygen desaturation?",
+  "Do genetic markers modify a patient's response to anesthetic depth?"
+];
+
+let AI_ENABLED = false;
+let DEMO = false;           // true when no backend (e.g. static GitHub Pages) — show illustrative previews
+let CURRENT = null;
+// defaults so the pricing menu renders even with no backend; /api/health overrides these
+let PRICING = {
+  plan:{label:"Statistical analysis plan",price:15}, extraction:{label:"VitalDB data-extraction script",price:10},
+  dictionary:{label:"Data dictionary & variable manifest",price:5}, figures:{label:"Suggested figures (templates + code)",price:12},
+  power:{label:"Power / sample-size estimate",price:12}, github:{label:"Private GitHub repo (clone-ready)",price:8}
+};
+let BUNDLE = {label:"Full scoping pack (everything)", price:49};
+let NOVELTY_PRICE = 9;
+const EXAMPLE = {"question": "Is intraoperative hypotension associated with postoperative acute kidney injury?", "ai_enriched": false, "demo": true, "design": "Retrospective single-center observational cohort (VitalDB).", "primary_analysis": "Adjusted association between exposure and outcome; model family chosen by outcome type.", "models": ["Multivariable logistic regression (binary AKI outcome)", "Sensitivity analysis restricted to the arterial-line subset"], "covariates": ["age", "ASA physical status"], "limitations": ["Mean Arterial Pressure (MAP): Invasive MBP needs an arterial line (~1-2 s); non-invasive MBP is intermittent (every few min). Choose the source matching your hypotension definition.", "Postoperative creatinine (for AKI): Present within the +/-90-day lab window BUT only when creatinine was ordered postoperatively. Many cases lack postop draws, so an AKI cohort is a SELECTED subset, not all 6,388."], "plots": [{"title": "Distribution of intraoperative hypotension", "rationale": "Inspect the exposure distribution and pick clinically sensible cut-points.", "url": "examples/plots/fig1_histogram.png"}, {"title": "postoperative AKI across intraoperative hypotension", "rationale": "Show the exposure–outcome relationship before modelling.", "url": "examples/plots/fig2_event_rate_by_exposure.png"}, {"title": "intraoperative hypotension by ASA", "rationale": "Check confounding by baseline risk (ASA) across the cohort.", "url": "examples/plots/fig3_box_by_subgroup.png"}], "files": [{"name": "analysis_plan.md", "ai": false}, {"name": "data_dictionary.csv", "ai": false}, {"name": "extract_vitaldb.py", "ai": false}, {"name": "power_estimate.md", "ai": false}, {"name": "make_plots.py", "ai": false}, {"name": "plots/fig1_histogram.png", "ai": false}, {"name": "plots/fig2_event_rate_by_exposure.png", "ai": false}, {"name": "plots/fig3_box_by_subgroup.png", "ai": false}, {"name": ".gitignore", "ai": false}, {"name": "requirements.txt", "ai": false}, {"name": "GITHUB_SETUP.md", "ai": false}], "has_github": true, "github_repo_url": null, "download_url": "examples/scoping_pack.zip", "filebase": "examples/"};   // sample scoping pack manifest baked at build time
+const NOVELTY_EXAMPLE = [
+  {title:"Relationship between Intraoperative Hypotension and Acute Kidney and Myocardial Injury after Noncardiac Surgery: A Retrospective Cohort Analysis", journal:"Anesthesiology", year:"2017", pmid:"28296809", url:"https://pubmed.ncbi.nlm.nih.gov/28296809/"},
+  {title:"Intraoperative hypotension and postoperative acute kidney injury: A systematic review", journal:"American Journal of Surgery", year:"2024", pmid:"38040526", url:"https://pubmed.ncbi.nlm.nih.gov/38040526/"},
+  {title:"Intraoperative hypotension and the risk of postoperative adverse outcomes: a systematic review", journal:"British Journal of Anaesthesia", year:"2018", pmid:"30236233", url:"https://pubmed.ncbi.nlm.nih.gov/30236233/"}
+];
+
+// ---- next-steps checklist (what to do after a question is feasible) ----
+const CHECKLIST = [
+  "Lock the PECO and pick primary vs secondary outcomes.",
+  "Operationalize exposure & outcome (thresholds, durations, time windows).",
+  "Define cohort inclusion/exclusion, then estimate the analyzable N on the relevant track subset.",
+  "Pre-register the analysis plan (e.g. OSF) before touching the outcome data.",
+  "Generate the scoping pack: analysis plan, extraction script, data dictionary, figure templates.",
+  "Extract the data and audit completeness / informative missingness.",
+  "Have a statistician review the model choice and power.",
+  "Run the analysis on real data → make figures → then (separately) write it up."
+];
+
+// ---- local persistence (ideas + checklist state) ----
+const LS_IDEAS="afferent_ideas", LS_CHECKS="afferent_checks";
+const qkey = q => (q||"").trim().toLowerCase();
+function getIdeas(){ try{return JSON.parse(localStorage.getItem(LS_IDEAS))||[]}catch(e){return[]} }
+function setIdeas(a){ localStorage.setItem(LS_IDEAS, JSON.stringify(a)); }
+function getChecks(){ try{return JSON.parse(localStorage.getItem(LS_CHECKS))||{}}catch(e){return{}} }
+function setChecks(o){ localStorage.setItem(LS_CHECKS, JSON.stringify(o)); }
+
+// ---- shared inventory index (mirror of lookup.py) ----
+const norm = s => s.trim().toLowerCase().replace(/[\s\-\/]+/g,"_");
+const INDEX = {};
+for(const e of ENTRIES){ if(!(e.id in INDEX)) INDEX[e.id]=e; for(const a of e.aliases){const k=norm(a); if(!(k in INDEX)) INDEX[k]=e;} }
+const CONFIRMED_OUTCOMES = ENTRIES.filter(e=>e.category==="outcome" && e.status==="CONFIRMED").map(e=>({id:e.id,name:e.name}));
+
+// well-formed, VitalDB-answerable example questions (offline fallback suggestions)
+const SUGGESTED = [
+  "Does intraoperative hypotension (MAP < 65 mmHg) predict postoperative AKI?",
+  "Is intraoperative burst suppression associated with patient age?",
+  "Does low intraoperative cardiac output predict in-hospital mortality?",
+  "Is ASA physical status associated with intraoperative SpO2 desaturation?"
+];
+
+// vocabulary the engine recognizes, grouped (built from the confirmed inventory)
+const CATLABEL={signal:"Signals",hemodynamic:"Hemodynamics",respiratory:"Respiratory",
+  demographic:"Demographics & case",intraoperative:"Intraop drugs/fluids",laboratory:"Labs",outcome:"In-hospital outcomes"};
+const VOCAB=(function(){
+  const g={};
+  for(const e of ENTRIES){ if(e.status!=="CONFIRMED")continue;
+    const k=CATLABEL[e.category]||e.category;
+    (g[k]=g[k]||[]).push(e.name.replace(/\s*\(.*?\)\s*/g," ").trim()); }
+  const order=["Signals","Hemodynamics","Respiratory","Demographics & case","Intraop drugs/fluids","Labs","In-hospital outcomes"];
+  return order.filter(o=>g[o]).map(o=>({group:o,items:g[o].slice(0,6)}));
+})();
+
+function resolveOne(concept){
+  const key=norm(concept); let entry=null;
+  const tid=ALIASES[key]; if(tid) entry=INDEX[tid];
+  if(!entry) entry=INDEX[key];
+  if(!entry) return {label:concept,status:"NOT_IN_INVENTORY",resolved_id:null,entry:null};
+  const status=entry.status==="CONFIRMED"?"CONFIRMED":"CONFIRMED_ABSENT";
+  return {label:concept,status,resolved_id:entry.id,entry};
+}
+
+// ---- offline keyword concept extraction ----
+let PHRASES=null;
+function buildPhrases(){
+  const seen=new Set(),out=[];
+  const add=(raw,id)=>{const p=raw.toLowerCase().replace(/[^a-z0-9]+/g," ").trim(); if(p.length<3)return;
+    const k=p+"=>"+id; if(seen.has(k))return; seen.add(k); out.push({p,id});};
+  for(const [k,v] of Object.entries(ALIASES)) add(k,v);
+  for(const e of ENTRIES){ add(e.name,e.id); for(const a of e.aliases) add(a,e.id);}
+  out.sort((a,b)=>b.p.length-a.p.length); return out;
+}
+function extractConcepts(q){
+  if(!PHRASES)PHRASES=buildPhrases();
+  let hay=" "+q.toLowerCase().replace(/[^a-z0-9]+/g," ").trim().replace(/\s+/g," ")+" ";
+  const found=[],ids=new Set();
+  for(const {p,id} of PHRASES){const needle=" "+p+" ";
+    if(hay.indexOf(needle)!==-1){hay=hay.split(needle).join("  "+" ".repeat(p.length)+"  ");
+      if(!ids.has(id)){ids.add(id);found.push({phrase:p,id});}}}
+  return found;
+}
+
+// ---- verdict (shared) ----
+function deriveVerdict(res){
+  if(res.length===0) return {v:"INSUFFICIENT_INFO",title:"No clinical concepts recognized",
+    reason:"Name the exposure and the outcome explicitly — e.g. “burst suppression” (exposure) and “postoperative delirium” (outcome)."};
+  const absent=res.filter(r=>r.status==="CONFIRMED_ABSENT");
+  const notin=res.filter(r=>r.status==="NOT_IN_INVENTORY");
+  if(absent.length) return {v:"NOT_FEASIBLE",title:"Not feasible in VitalDB",
+    reason:"VitalDB does not collect: "+absent.map(r=>r.entry.name).join("; ")+". This is the data boundary — no modelling can recover a variable that was never recorded."};
+  if(notin.length) return {v:"INSUFFICIENT_INFO",title:"Insufficient information — not yet verified",
+    reason:"Not in the verified inventory: "+notin.map(r=>r.label).join(", ")+". Per the no-guessing rule, these must be checked against VitalDB documentation before a verdict."};
+  const soft=res.filter(r=>r.entry.confidence!=="high");
+  if(soft.length) return {v:"FEASIBLE_WITH_CAVEATS",title:"Feasible — with caveats",
+    reason:"Every required variable is present, but some are device-subset, case-total, or derived rather than pre-labelled: "+soft.map(r=>r.entry.name).join("; ")+". Check coverage and definitions before committing."};
+  return {v:"FEASIBLE",title:"Feasible in VitalDB",
+    reason:"Every required variable is confirmed present at high confidence. Verify cohort size on the relevant device/track subset, then proceed."};
+}
+
+// ---- build a unified result object ----
+function offlineResult(q){
+  const concepts=extractConcepts(q).map(c=>{
+    const r=resolveOne(c.phrase);
+    r.role=(r.entry&&r.entry.category==="outcome")?"outcome":"variable";
+    return r;
+  });
+  const verdict=deriveVerdict(concepts);
+  let suggestion=null;
+  if(verdict.v==="NOT_FEASIBLE") suggestion={reframe:null,alternatives:CONFIRMED_OUTCOMES};
+  return {mode:"offline",question:q,peco:null,concepts,verdict,suggestion,rewrites:null};
+}
+
+function aiResultToUnified(data){
+  const concepts=data.concepts.map(c=>({label:c.label,role:c.role,status:c.status,resolved_id:c.resolved_id,entry:c.entry}));
+  // re-derive the verdict label/title/reason locally for consistent copy
+  const v=deriveVerdict(concepts.map(c=>({label:c.label,status:c.status,entry:c.entry})));
+  return {mode:"ai",question:data.question,peco:data.peco,concepts,verdict:v,suggestion:data.suggestion,rewrites:data.rewrites||null};
+}
+
+function renderReframeHelper(R){
+  const hasAI = R.rewrites && R.rewrites.length;
+  let h=`<div class="seclabel">How to ask this so Afferent can answer it <span class="tagchip ${hasAI?"tag-ai":"tag-guide"}">${hasAI?"AI-inferred":"guide"}</span></div>`;
+  h+=`<div class="helper">`;
+  h+=`<div class="htxt">A question Afferent can resolve names a <b>population</b>, an <b>exposure</b>, and an <b>outcome</b>, and stays inside VitalDB's window (intraoperative signals + in-hospital outcomes + &plusmn;90-day labs). Pick a reformulation below, or mention concepts from the vocabulary.</div>`;
+  const sugs = hasAI ? R.rewrites : SUGGESTED.map(q=>({question:q,why:null}));
+  h+=`<div class="suglist">`;
+  for(const s of sugs){
+    h+=`<div class="sugq" data-q="${esc(s.question)}"><div class="sq">${esc(s.question)}</div>${s.why?`<div class="sw">${esc(s.why)}</div>`:""}</div>`;
+  }
+  h+=`</div>`;
+  h+=`<div class="vocabh">Concepts Afferent recognizes</div><div class="vocab">`;
+  for(const g of VOCAB){ h+=`<div class="vg"><span class="vgk">${esc(g.group)}</span> ${g.items.map(esc).join(" · ")}</div>`; }
+  h+=`</div></div>`;
+  return h;
+}
+
+// ---- rendering ----
+const CONF={high:"high confidence",medium:"medium confidence",low:"low confidence"};
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function dataLayer(e){ if(!e)return""; const t=e.track||"";
+  if(e.category==="outcome")return"in-hospital outcome";
+  if(/lab_data/i.test(t)||e.category==="laboratory")return"lab series (±90d)";
+  if(/^clinical_info/.test(t))return"clinical table";
+  if(/derived from/i.test(t))return"derived";
+  return"intraop track"; }
+function availability(e){ if(!e)return""; const m=(e.missingness||"").toLowerCase();
+  if(/subset|device|only when|arterial line|bis module|advanced monitor|invos|orchestra/.test(m))return"device subset";
+  if(/case total|case-total|estimated|clinician-estimated/.test(m))return"case-level total";
+  if(/derived|derivable/.test(m))return"derived endpoint";
+  if(/near-complete|mostly complete|well populated|near complete/.test(m))return"broad coverage";
+  return""; }
+
+function renderResult(R){
+  CURRENT=R;
+  let h="";
+  // verdict
+  h+=`<div class="verdict v-${R.verdict.v}"><div class="vtop"><span class="vbadge">${R.verdict.v.replace(/_/g," ")}</span><h2>${esc(R.verdict.title)}</h2></div><p class="reason">${esc(R.verdict.reason)}</p></div>`;
+
+  // reframe helper — the most useful thing to show when we couldn't resolve the question
+  if(R.verdict.v==="INSUFFICIENT_INFO"){ h+=renderReframeHelper(R); }
+
+  // free report + (feasible) novelty scan
+  h+=`<div class="actionsrow"><button class="btn-mini" id="dlreport">↓ Feasibility report (free)</button>`;
+  if(R.verdict.v.indexOf("FEASIBLE")===0) h+=`<button class="btn-mini" id="novbtn">Prior-work / novelty scan — $${NOVELTY_PRICE}</button>`;
+  h+=`</div><div id="novres"></div>`;
+
+  // study at a glance (feasible)
+  if(R.verdict.v.indexOf("FEASIBLE")===0){ h+=renderGlance(R); }
+
+  // PECO (inference) — only in AI mode
+  if(R.peco){
+    h+=`<div class="seclabel">Question decomposition <span class="tagchip tag-ai">AI-inferred</span></div>`;
+    h+=`<div class="peco">`;
+    h+=`<div class="cell"><div class="k">Population</div><div class="val">${esc(R.peco.population)}</div></div>`;
+    h+=`<div class="cell"><div class="k">Exposure</div><div class="val">${esc(R.peco.exposure)}</div></div>`;
+    h+=`<div class="cell"><div class="k">Comparator</div><div class="val">${esc(R.peco.comparator)}</div></div>`;
+    h+=`<div class="cell"><div class="k">Outcome</div><div class="val">${esc(R.peco.outcome)}</div></div>`;
+    h+=`</div>`;
+  }
+
+  // truth table (verified facts)
+  if(R.concepts.length){
+    h+=`<div class="seclabel">Concepts resolved against the inventory <span class="tagchip tag-verified">Verified facts</span></div><div class="ct">`;
+    for(const r of R.concepts){
+      const isOut=r.entry&&r.entry.category==="outcome";
+      const roleTxt=r.role||(isOut?"outcome":"variable");
+      const lay=dataLayer(r.entry), av=availability(r.entry);
+      let track=r.entry?(r.entry.track?`<span class="mono">${esc(r.entry.track)}</span>`:""):`<span class="mono">unverified</span>`;
+      h+=`<details class="crow"${r.status!=="CONFIRMED"?" open":""}><summary>`;
+      h+=`<span class="pill p-${r.status}">${r.status.replace(/_/g," ")}</span>`;
+      h+=`<span class="cname">${esc(r.entry?r.entry.name:r.label)}</span> <span class="role ${isOut?"outcome":""}">${esc(roleTxt)}</span>`;
+      if(lay) h+=` <span class="layerchip">${esc(lay)}</span>`;
+      if(av) h+=` <span class="avail">${esc(av)}</span>`;
+      h+=`<span class="cmeta">${r.entry?esc(CONF[r.entry.confidence]||""):"not in inventory"}</span></summary>`;
+      h+=`<div class="cbody">`;
+      if(r.entry){
+        h+=`<div class="kv"><b>Where:</b> ${track}${r.entry.units?" · "+esc(r.entry.units):""}${lay?" · "+esc(lay):""}${av?" · <i>"+esc(av)+"</i>":""}</div>`;
+        h+=`<div class="kv"><b>Missingness:</b> ${esc(r.entry.missingness)}</div>`;
+        h+=`<div class="kv"><b>Common mistake:</b> ${esc(r.entry.common_mistakes)}</div>`;
+      } else {
+        h+=`<div class="kv">Matched the question but is not in the verified inventory, so no claim is made either way. Verify against VitalDB documentation and add it before relying on it.</div>`;
+      }
+      h+=`</div></details>`;
+    }
+    h+=`</div>`;
+  }
+
+  // suggested reframe (inference) — the helpful no
+  if(R.suggestion){
+    h+=`<div class="seclabel">What you could study instead <span class="tagchip tag-ai">AI-inferred</span></div>`;
+    h+=`<div class="reframe">`;
+    if(R.suggestion.reframe){ h+=`<div class="h">Suggested reframe</div><div>${esc(R.suggestion.reframe)}</div>`; }
+    else { h+=`<div class="h">The blocking variable isn't recorded — but related questions are answerable.</div>`; }
+    if(R.suggestion.alternatives&&R.suggestion.alternatives.length){
+      h+=`<div style="margin-top:8px;font-size:13px;color:#334155">Confirmed in-hospital outcomes you could pivot to:</div><ul>`;
+      for(const a of R.suggestion.alternatives) h+=`<li>${esc(a.name)}</li>`;
+      h+=`</ul>`;
+    }
+    h+=`</div>`;
+  }
+
+  // study toolkit (only when feasible)
+  if(R.verdict.v.indexOf("FEASIBLE")===0){ h+=renderToolkit(R); }
+
+  const el=document.getElementById("result");
+  el.innerHTML=h; el.style.display="block";
+  el.querySelectorAll(".sugq").forEach(n=>n.addEventListener("click",()=>{
+    const q=n.getAttribute("data-q"); qEl.value=q; runQuery(q);
+  }));
+  const rb=el.querySelector("#dlreport"); if(rb) rb.addEventListener("click",()=>downloadReport(R));
+  const nb=el.querySelector("#novbtn"); if(nb) nb.addEventListener("click",()=>onNovelty(R));
+  if(R.verdict.v.indexOf("FEASIBLE")===0) wireToolkit(el,R);
+  el.scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+function renderGlance(R){
+  const conf=R.concepts.filter(c=>c.status==="CONFIRMED");
+  const outs=conf.filter(c=>c.role==="outcome"||(c.entry&&c.entry.category==="outcome"));
+  const exps=conf.filter(c=>!outs.includes(c)&&c.role!=="covariate");
+  const layers=[...new Set(conf.map(c=>dataLayer(c.entry)).filter(Boolean))];
+  const caveats=conf.filter(c=>c.entry&&c.entry.confidence!=="high").length;
+  const nm=c=>c.entry?c.entry.name:c.label;
+  let h=`<div class="seclabel">Study at a glance <span class="tagchip tag-verified">verified variables</span></div><div class="glance">`;
+  h+=`<div class="g"><div class="gk">Exposure(s)</div><div class="gv">${esc(exps.map(nm).join(", ")||"—")}</div></div>`;
+  h+=`<div class="g"><div class="gk">Outcome(s)</div><div class="gv">${esc(outs.map(nm).join(", ")||"—")}</div></div>`;
+  h+=`<div class="g"><div class="gk">Confirmed variables</div><div class="gv">${conf.length}</div><div class="gs">${caveats} with coverage caveats</div></div>`;
+  h+=`<div class="g"><div class="gk">Data layers</div><div class="gv" style="font-size:12.5px">${esc(layers.join(" · ")||"—")}</div><div class="gs">where they live in VitalDB</div></div>`;
+  h+=`<div class="g"><div class="gk">Design</div><div class="gv">Retrospective cohort</div><div class="gs">single-center, observational</div></div>`;
+  h+=`<div class="g"><div class="gk">Watch for</div><div class="gv">Confounding & missingness</div><div class="gs">adjust + report completeness</div></div>`;
+  return h+`</div>`;
+}
+
+function downloadReport(R){
+  let m=`# Afferent Intelligence — feasibility report\n\n**Question:** ${R.question}\n\n`;
+  m+=`**Verdict:** ${R.verdict.v.replace(/_/g," ")} — ${R.verdict.title}\n\n${R.verdict.reason}\n\n`;
+  if(R.peco){ m+=`## PECO\n- Population: ${R.peco.population}\n- Exposure: ${R.peco.exposure}\n- Comparator: ${R.peco.comparator}\n- Outcome: ${R.peco.outcome}\n\n`; }
+  m+=`## Concepts resolved against the verified inventory\n`;
+  for(const c of R.concepts){ m+=`- **${c.entry?c.entry.name:c.label}** — ${c.status.replace(/_/g," ")}`;
+    if(c.entry){ m+=` (${c.entry.track||"n/a"}; ${c.entry.confidence} confidence)\n  - missingness: ${c.entry.missingness}\n`; } else m+=`\n`; }
+  m+=`\n_Generated by Afferent Intelligence. Source: VitalDB data descriptor (Lee et al., Scientific Data 2022). This report documents feasibility; it does not write the paper._\n`;
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([m],{type:"text/markdown"}));
+  a.download="feasibility_report.md"; a.click(); URL.revokeObjectURL(a.href);
+}
+
+// ---- novelty scan (PubMed) ----
+function onNovelty(R){
+  openCheckout("Prior-work / novelty scan", R.question, NOVELTY_PRICE,
+    ["PubMed related-work search on your exposure & outcome","Calibrated AI read of overlap (when AI mode is on)"],
+    ()=>runNovelty(R));
+}
+async function runNovelty(R){
+  const box=document.getElementById("novres");
+  if(DEMO){ renderNovelty(box,{articles:NOVELTY_EXAMPLE, demo:true}); return; }
+  box.innerHTML=`<div class="helper" style="margin-top:10px"><span class="spinner"></span> Searching PubMed for related work…</div>`;
+  try{
+    const r=await fetch("/api/novelty",{method:"POST",headers:{"content-type":"application/json"},
+      body:JSON.stringify({question:R.question,concepts:R.concepts.map(c=>({label:c.label}))})});
+    renderNovelty(box,await r.json());
+  }catch(e){ box.innerHTML=`<div class="helper" style="margin-top:10px">Novelty scan needs the backend running (PubMed lookup happens server-side).</div>`; }
+}
+function renderNovelty(box,d){
+  let h=`<div class="seclabel">Prior work / novelty <span class="tagchip ${d.assessment?"tag-ai":"tag-guide"}">${d.assessment?"AI-assessed":(d.demo?"example (real citations)":"PubMed")}</span></div>`;
+  if(d.assessment) h+=`<div class="novassess na-${d.assessment.level}"><b>${d.assessment.level.replace(/_/g," ")}.</b> ${esc(d.assessment.summary)}</div>`;
+  if(d.articles&&d.articles.length){ h+=`<div class="novlist">`;
+    for(const a of d.articles) h+=`<div class="novrow"><div class="nt"><a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.title)}</a></div><div class="nm">${esc(a.journal)} · ${esc(a.year)} · PMID ${esc(a.pmid)}</div></div>`;
+    h+=`</div>`;
+  } else h+=`<div class="helper">No closely-related PubMed results surfaced — which may itself suggest novelty (or that the phrasing needs refining).</div>`;
+  h+=`<div style="margin-top:8px;font-size:11.5px;color:var(--muted)">Related-work scan only — not an exhaustive systematic review. Assessment is judged from the titles above.</div>`;
+  box.innerHTML=h;
+}
+
+// ---- generic demo checkout ----
+function openCheckout(title, sub, price, lines, onPay){
+  const m=document.createElement("div"); m.className="modal";
+  m.innerHTML=`<div class="box"><h3>${esc(title)}</h3><div style="font-size:13px;color:#334155"><i>${esc(sub)}</i></div>`+
+    `<div class="price">$${price}.00</div><ul>${lines.map(l=>`<li>${esc(l)}</li>`).join("")}</ul>`+
+    `<div class="demo">Demo checkout — <b>no real charge</b>. In production this is a Stripe Checkout session; the deliverable releases on payment success. It does <b>not</b> write your paper.</div>`+
+    `<div class="mbtns"><button class="btn-ghost" id="mc">Cancel</button><button class="btn-pay" id="mp">Pay $${price} &amp; run</button></div></div>`;
+  document.body.appendChild(m);
+  m.querySelector("#mc").addEventListener("click",()=>m.remove());
+  m.addEventListener("click",e=>{if(e.target===m)m.remove();});
+  m.querySelector("#mp").addEventListener("click",()=>{ m.remove(); onPay(); });
+}
+
+// ---- feasible-study toolkit: checklist + save + scope ----
+function renderChecklist(q){
+  const st=getChecks()[qkey(q)]||{};
+  let h=`<ul class="checklist">`;
+  CHECKLIST.forEach((t,i)=>{ const done=!!st[i];
+    h+=`<li class="${done?"done":""}"><input type="checkbox" data-ci="${i}" ${done?"checked":""}><span>${esc(t)}</span></li>`; });
+  return h+`</ul>`;
+}
+function renderToolkit(R){
+  const saved=getIdeas().some(x=>qkey(x.question)===qkey(R.question));
+  let h=`<div class="seclabel">After you settle on this question <span class="tagchip tag-guide">workflow</span></div>`;
+  h+=`<div class="toolkit"><div style="font-size:13px;color:var(--muted)">An organized path from a good question to results — Afferent does the scoped grunt-work, not the paper.</div>`;
+  h+=renderChecklist(R.question);
+  h+=`<div class="tkbtns">`;
+  h+=`<button class="btn-pay" id="scopebtn">Scope this study &amp; pricing →</button>`;
+  h+=saved?`<span class="savedflag">★ saved to ideas</span>`:`<button class="btn-ghost" id="saveidea">＋ Save to ideas</button>`;
+  h+=`</div>`;
+  h+=`<div class="scopeform" id="scopeform"></div>`;
+  h+=`<div class="scoperes" id="scoperes"></div>`;
+  h+=`</div>`;
+  return h;
+}
+function wireToolkit(el,R){
+  el.querySelectorAll(".checklist input").forEach(cb=>cb.addEventListener("change",()=>{
+    const i=cb.getAttribute("data-ci"), ch=getChecks(), k=qkey(R.question);
+    ch[k]=ch[k]||{}; ch[k][i]=cb.checked; setChecks(ch);
+    cb.closest("li").classList.toggle("done",cb.checked);
+  }));
+  const sb=el.querySelector("#saveidea");
+  if(sb) sb.addEventListener("click",()=>{ saveIdea(R); sb.outerHTML=`<span class="savedflag">★ saved to ideas</span>`; });
+  el.querySelector("#scopebtn").addEventListener("click",()=>toggleScopeForm(R));
+}
+
+// ---- scope form ----
+function toggleScopeForm(R){
+  const f=document.getElementById("scopeform");
+  if(f.style.display==="block"){ f.style.display="none"; return; }
+  f.innerHTML=buildScopeForm(R); f.style.display="block";
+  f.querySelectorAll(".pitem,#it_bundle").forEach(c=>c.addEventListener("change",updateTotal));
+  updateTotal();
+  f.querySelector("#genscope").addEventListener("click",()=>{
+    const ord=gatherItems(); if(!ord.items.length){ alert("Pick at least one deliverable."); return; }
+    openCheckout("Scoping pack", R.question, ord.total, ord.lines, ()=>generateScope(R));
+  });
+  f.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+function buildScopeForm(R){
+  const confirmed=R.concepts.filter(c=>c.status==="CONFIRMED");
+  const cov=confirmed.map(c=>`<label><input type="checkbox" class="cov" value="${esc(c.label)}">${esc(c.label)}</label>`).join("");
+  return `<div class="seclabel" style="margin-top:0">Scoping parameters <span class="tagchip tag-guide">you specify</span></div>
+  <div class="ff">
+    <div class="f"><label>Age min</label><input type="number" id="age_min" placeholder="e.g. 18"></div>
+    <div class="f"><label>Age max</label><input type="number" id="age_max" placeholder="e.g. 90"></div>
+    <div class="f"><label>ASA classes</label><input type="text" id="asa" placeholder="e.g. 1, 2, 3"></div>
+    <div class="f"><label>Surgery type / department contains</label><input type="text" id="surgery_type" placeholder="e.g. Colorectal"></div>
+    <div class="f"><label>Anesthesia type</label><select id="anesthesia_type"><option value="any">any</option><option>General</option><option>Spinal</option><option>TIVA</option></select></div>
+    <div class="f"><label>Emergency surgery</label><select id="emergency"><option value="any">any</option><option value="yes">emergency only</option><option value="no">elective only</option></select></div>
+    <div class="f full"><label>Exposure operationalization</label><textarea id="exposure_def" placeholder="e.g. intraoperative hypotension = cumulative minutes with MAP < 65 mmHg"></textarea></div>
+    <div class="f full"><label>Outcome operationalization</label><textarea id="outcome_def" placeholder="e.g. AKI = KDIGO stage ≥1 from pre-op vs peak post-op creatinine within 7 days"></textarea></div>
+    <div class="f"><label>Time window</label><input type="text" id="time_window" placeholder="e.g. induction → end of surgery"></div>
+    <div class="f"><label>Primary analysis preference</label><input type="text" id="primary_analysis" placeholder="e.g. multivariable logistic regression"></div>
+    <div class="f full"><label>Covariates to adjust for</label><div class="covbox">${cov||"<span style='color:var(--muted);font-size:12.5px'>no confirmed covariates detected</span>"}</div></div>
+    <div class="f full"><label>Notes</label><textarea id="sample_note" placeholder="anything else to scope"></textarea></div>
+  </div>` + buildMenu() + `
+  <div class="tkbtns"><button class="btn-pay" id="genscope">Review &amp; pay</button></div>`;
+}
+function buildMenu(){
+  let m=`<div class="seclabel">Deliverables &amp; pricing <span class="tagchip tag-guide">choose</span></div><div class="menu">`;
+  for(const [k,v] of Object.entries(PRICING)) m+=`<label class="mrow"><input type="checkbox" class="pitem" value="${k}" ${k==="github"?"":"checked"}><span class="ml">${esc(v.label)}</span><span class="mp">$${v.price}</span></label>`;
+  m+=`<label class="mrow mbundle"><input type="checkbox" id="it_bundle"><span class="ml">${esc(BUNDLE.label)} — best value</span><span class="mp">$${BUNDLE.price}</span></label>`;
+  m+=`</div><div class="mtotal">Total<span class="mt" id="mt">$0</span></div>`;
+  m+=`<div class="notoffered">Not offered: <b>manuscript writing, results interpretation, or causal claims.</b> Afferent scopes the study; you and your statistician run and write it.</div>`;
+  return m;
+}
+function gatherItems(){
+  const b=document.getElementById("it_bundle");
+  if(b&&b.checked) return {items:["bundle"],total:BUNDLE.price,lines:[BUNDLE.label+" — $"+BUNDLE.price]};
+  const sel=[...document.querySelectorAll(".pitem:checked")].map(c=>c.value);
+  const total=sel.reduce((s,k)=>s+((PRICING[k]&&PRICING[k].price)||0),0);
+  const lines=sel.map(k=>PRICING[k].label+" — $"+PRICING[k].price);
+  return {items:sel,total,lines};
+}
+function updateTotal(){ const t=document.getElementById("mt"); if(t) t.textContent="$"+gatherItems().total; }
+function gatherParams(){
+  const v=id=>{const e=document.getElementById(id);return e?e.value.trim():"";};
+  const asa=v("asa").split(",").map(s=>s.trim()).filter(Boolean).map(s=>/^\d+$/.test(s)?("ASA "+s):s);
+  const covs=[...document.querySelectorAll(".cov:checked")].map(c=>c.value);
+  return {age_min:v("age_min"),age_max:v("age_max"),asa,surgery_type:v("surgery_type"),
+    anesthesia_type:v("anesthesia_type"),emergency:v("emergency"),exposure_def:v("exposure_def"),
+    outcome_def:v("outcome_def"),time_window:v("time_window"),primary_analysis:v("primary_analysis"),
+    covariates:covs,sample_note:v("sample_note")};
+}
+
+function demoScope(R){
+  const res=document.getElementById("scoperes");
+  if(!EXAMPLE){ res.innerHTML=`<div class="helper">Example pack unavailable in this build.</div>`; return; }
+  const ord=gatherItems();
+  const items = ord.items[0]==="bundle" ? [{label:BUNDLE.label,price:BUNDLE.price}]
+              : ord.items.map(k=>({label:PRICING[k].label,price:PRICING[k].price}));
+  const data=Object.assign({},EXAMPLE,{run_id:"example",order:{items,total:ord.total}});
+  renderScopeResults(res,data);
+}
+async function generateScope(R){
+  if(DEMO) return demoScope(R);
+  const res=document.getElementById("scoperes");
+  res.innerHTML=`<div class="verdict v-INSUFFICIENT_INFO"><div class="vtop"><span class="vbadge"><span class="spinner"></span>building</span><h2>Generating your scoping pack…</h2></div></div>`;
+  const params=gatherParams(); const {items}=gatherItems();
+  const concepts=R.concepts.map(c=>({label:c.label,role:c.role,status:c.status,resolved_id:c.resolved_id}));
+  try{
+    const r=await fetch("/api/scope",{method:"POST",headers:{"content-type":"application/json"},
+      body:JSON.stringify({question:R.question,concepts,params,items})});
+    const data=await r.json();
+    if(data.error){ res.innerHTML=`<div class="helper">${esc(data.error)}</div>`; return; }
+    renderScopeResults(res,data);
+  }catch(e){
+    res.innerHTML=`<div class="helper">Scoping needs the backend running (it generates files + figures server-side). Start it with <span class="mono">py -m uvicorn app:app</span> and open http://127.0.0.1:8000.</div>`;
+  }
+}
+function renderScopeResults(res,data){
+  let h=`<div class="seclabel">Your scoping pack ${data.ai_enriched?'<span class="tagchip tag-ai">AI-planned</span>':'<span class="tagchip tag-guide">templated</span>'}</div>`;
+  if(data.order){ h+=`<div class="sapblock"><div class="k">Order</div><div>${data.order.items.map(i=>esc(i.label)+" ($"+i.price+")").join(" · ")} — <b>$${data.order.total}</b> <span style="color:var(--muted)">(demo, not charged)</span></div></div>`; }
+  h+=`<div class="sapblock">`;
+  h+=`<div class="k">Design</div><div>${esc(data.design)}</div>`;
+  h+=`<div class="k">Primary analysis</div><div>${esc(data.primary_analysis)}</div>`;
+  if(data.models&&data.models.length){ h+=`<div class="k">Candidate models</div><div>${data.models.map(esc).join("; ")}</div>`; }
+  if(data.covariates&&data.covariates.length){ h+=`<div class="k">Covariates</div><div>${data.covariates.map(esc).join(", ")}</div>`; }
+  if(data.limitations&&data.limitations.length){ h+=`<div class="k">Key limitations (grounded)</div><div>${data.limitations.map(esc).join(" · ")}</div>`; }
+  h+=`</div>`;
+  if(data.plots&&data.plots.length){
+    h+=`<div class="seclabel">Suggested figures <span class="tagchip tag-guide">illustrative</span></div><div class="plotgrid">`;
+    for(const p of data.plots) h+=`<div class="plotcard"><img src="${esc(p.url)}" alt="${esc(p.title)}"><div class="pc"><div class="pt">${esc(p.title)}</div><div class="pr">${esc(p.rationale||"")}</div></div></div>`;
+    h+=`</div>`;
+  }
+  if(data.has_github){
+    h+=`<div class="seclabel">Private GitHub repo <span class="tagchip tag-guide">clone-ready</span></div>`;
+    if(data.github_repo_url){
+      h+=`<div class="reframe"><div class="h">Repo created</div><div>Your private repo: <a href="${esc(data.github_repo_url)}" target="_blank" rel="noopener">${esc(data.github_repo_url)}</a>. Download the pack and follow <span class="mono">GITHUB_SETUP.md</span> to push.</div></div>`;
+    } else {
+      h+=`<div class="helper">The pack is laid out as a clone-ready repo (<span class="mono">.gitignore</span>, <span class="mono">requirements.txt</span>, <span class="mono">GITHUB_SETUP.md</span>). Download it, then: <span class="mono">gh repo create afferent-study --private --source=. --push</span>.<br><span style="color:var(--muted)">Auto-provisioning a private repo needs a connected GitHub account — set <span class="mono">GITHUB_TOKEN</span> on the server (the production OAuth step) and it's created for you.</span></div>`;
+    }
+  }
+  h+=`<div class="seclabel">Download</div>`;
+  h+=`<div class="filelist"><div class="filerow"><span class="fn">scoping_pack.zip</span><span style="color:var(--muted);font-size:12.5px">everything below, zipped</span><a class="btn-pay" href="${esc(data.download_url)}" download>Download pack</a></div>`;
+  const base=data.filebase||("/api/scope/file/"+data.run_id+"/");
+  for(const f of (data.files||[])){
+    if(f.name.endsWith(".png")) continue;
+    h+=`<div class="filerow"><span class="fn">${esc(f.name)}</span><a href="${esc(base)}${esc(f.name)}" target="_blank">view</a></div>`;
+  }
+  h+=`</div><div style="margin-top:10px;font-size:12px;color:var(--muted)">Reminder: this scopes the study — it does not write the paper. Figures are synthetic previews; run the extraction script to produce real ones.</div>`;
+  res.innerHTML=h;
+  res.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
+// ---- ideas board ----
+function saveIdea(R){
+  const ideas=getIdeas();
+  if(ideas.some(x=>qkey(x.question)===qkey(R.question))) return;
+  ideas.unshift({question:R.question,verdict:R.verdict.v,date:new Date().toISOString().slice(0,10),
+    concepts:R.concepts.map(c=>({label:c.label,role:c.role,status:c.status,resolved_id:c.resolved_id}))});
+  setIdeas(ideas); renderIdeas();
+}
+function removeIdea(q){ setIdeas(getIdeas().filter(x=>qkey(x.question)!==qkey(q))); renderIdeas(); }
+function renderIdeas(){
+  const ideas=getIdeas(), card=document.getElementById("ideascard");
+  document.getElementById("ideacount").textContent=ideas.length;
+  card.style.display=ideas.length?"block":"none";
+  if(!ideas.length) return;
+  const VC={FEASIBLE:["#15803d","#ecfdf5"],FEASIBLE_WITH_CAVEATS:["#b45309","#fffbeb"],NOT_FEASIBLE:["#b91c1c","#fef2f2"],INSUFFICIENT_INFO:["#475569","#f1f5f9"]};
+  let h="";
+  for(const it of ideas){ const c=VC[it.verdict]||VC.INSUFFICIENT_INFO;
+    const st=getChecks()[qkey(it.question)]||{}; const done=Object.values(st).filter(Boolean).length;
+    h+=`<div class="ideacard"><div class="ih"><span class="miniv" style="color:${c[0]};background:${c[1]}">${it.verdict.replace(/_/g," ")}</span>`;
+    h+=`<span class="iq" data-q="${esc(it.question)}">${esc(it.question)}</span>`;
+    h+=`<span class="idate">${esc(it.date)} · ${done}/${CHECKLIST.length} steps</span>`;
+    h+=`<button class="irm" data-rm="${esc(it.question)}" title="remove">✕</button></div></div>`;
+  }
+  const body=document.getElementById("ideasbody"); body.innerHTML=h;
+  body.querySelectorAll(".iq").forEach(n=>n.addEventListener("click",()=>{const q=n.getAttribute("data-q");qEl.value=q;runQuery(q);}));
+  body.querySelectorAll(".irm").forEach(n=>n.addEventListener("click",()=>removeIdea(n.getAttribute("data-rm"))));
+}
+
+// ---- query driver: try API, fall back to offline ----
+async function runQuery(q){
+  const btn=document.getElementById("run");
+  const el=document.getElementById("result");
+  if(AI_ENABLED){
+    btn.disabled=true; el.style.display="block";
+    el.innerHTML=`<div class="verdict v-INSUFFICIENT_INFO"><div class="vtop"><span class="vbadge"><span class="spinner"></span>thinking</span><h2>Decomposing your question…</h2></div></div>`;
+    try{
+      const resp=await fetch("/api/feasibility",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question:q})});
+      const data=await resp.json();
+      btn.disabled=false;
+      if(data.mode==="ai"){ renderResult(aiResultToUnified(data)); return; }
+      // no_ai / error -> graceful offline fallback
+    }catch(e){ btn.disabled=false; /* network error -> offline */ }
+  }
+  renderResult(offlineResult(q));
+}
+
+// ---- dataset profile card ----
+function renderProfile(){
+  const s=SCOPE||{};
+  const rows=[
+    ["Center", s.center||"Seoul National University Hospital (single center)"],
+    ["Cases", (s.n_cases_approx||6388)+" surgical cases"],
+    ["Clinical parameters", (s.clinical_info_parameters||74)+" per case"],
+    ["Lab tests", (s.lab_timeseries_tests||34)+" tests, "+(s.lab_window||"±90 days")],
+  ];
+  let h=`<div class="profile">`;
+  for(const [k,v] of rows) h+=`<div class="p"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`;
+  h+=`</div>`;
+  h+=`<div style="margin-top:12px;font-size:12.5px;color:var(--muted)">What's reachable</div><div class="haves">`;
+  for(const x of ["intraoperative waveforms/numerics","in-hospital mortality","ICU & hospital LOS","derivable AKI (postop creatinine)","intraop drugs/fluids/transfusion"]) h+=`<span class="have">${esc(x)}</span>`;
+  h+=`</div><div style="margin-top:10px;font-size:12.5px;color:var(--muted)">What's absent</div><div class="haves">`;
+  for(const x of ["postoperative delirium","POCD / cognitive testing","30-day / post-discharge mortality","readmission","ward pain / PONV","genetics"]) h+=`<span class="lack">${esc(x)}</span>`;
+  h+=`</div><div style="margin-top:12px;font-size:12.5px"><a href="${SOURCE_URL}" target="_blank" rel="noopener">VitalDB data descriptor (Lee et al., Scientific Data 2022) →</a></div>`;
+  document.getElementById("profilebody").innerHTML=h;
+}
+
+// ---- wire up ----
+const qEl=document.getElementById("q");
+document.getElementById("run").addEventListener("click",()=>{const v=qEl.value.trim(); if(v) runQuery(v);});
+qEl.addEventListener("keydown",e=>{if((e.metaKey||e.ctrlKey)&&e.key==="Enter"){const v=qEl.value.trim(); if(v) runQuery(v);}});
+const exWrap=document.getElementById("examples");
+for(const ex of EXAMPLES){const c=document.createElement("span");c.className="chip";c.textContent=ex;c.addEventListener("click",()=>{qEl.value=ex;runQuery(ex);});exWrap.appendChild(c);}
+document.getElementById("ic").textContent=ENTRIES.length;
+renderProfile();
+renderIdeas();
+
+// ---- idea discussion mode ----
+const DMSGS=[];
+function pushMsg(role,content){ DMSGS.push({role,content});
+  const box=document.getElementById("dmsgs");
+  box.innerHTML=DMSGS.map(m=>`<div class="dmsg ${m.role==="user"?"user":"bot"}">${esc(m.content)}</div>`).join("");
+  box.scrollTop=box.scrollHeight;
+}
+async function sendDiscuss(){
+  const inp=document.getElementById("dinput"); const t=inp.value.trim(); if(!t) return;
+  pushMsg("user",t); inp.value="";
+  if(DEMO){ pushMsg("assistant","(demo preview) In the live version I help you sharpen this into a feasible VitalDB question — proposing concrete intraoperative exposures and in-hospital outcomes, and steering away from what VitalDB can't measure (delirium, 30-day mortality, readmission). Try the feasibility search above to see the grounded engine in action."); return; }
+  if(!AI_ENABLED){ pushMsg("assistant","Discussion mode needs AI mode — set ANTHROPIC_API_KEY on the server and restart, then reload the page."); return; }
+  const history=DMSGS.slice();
+  const box=document.getElementById("dmsgs");
+  const tip=document.createElement("div"); tip.className="dmsg bot"; tip.innerHTML='<span class="spinner"></span>thinking…';
+  box.appendChild(tip); box.scrollTop=box.scrollHeight;
+  const send=document.getElementById("dsend"); send.disabled=true;
+  try{
+    const r=await fetch("/api/discuss",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({messages:history})});
+    const d=await r.json(); tip.remove();
+    pushMsg("assistant", d.reply || d.message || "(no reply)");
+  }catch(e){ tip.remove(); pushMsg("assistant","Discussion needs the backend running (the model call happens server-side)."); }
+  send.disabled=false;
+}
+document.getElementById("discussbtn").addEventListener("click",()=>{
+  const d=document.getElementById("discuss");
+  const show=d.style.display!=="block"; d.style.display=show?"block":"none";
+  if(show&&!DMSGS.length){ pushMsg("assistant", AI_ENABLED
+    ? "What clinical question or area are you curious about? Tell me the rough idea and I'll help shape it into something VitalDB can actually answer."
+    : "Heads up: discussion mode is most useful in AI mode (set ANTHROPIC_API_KEY on the server). You can still browse the examples and run the feasibility check."); }
+  if(show) d.scrollIntoView({behavior:"smooth",block:"nearest"});
+});
+document.getElementById("dsend").addEventListener("click",sendDiscuss);
+document.getElementById("dinput").addEventListener("keydown",e=>{ if(e.key==="Enter") sendDiscuss(); });
+
+// ---- detect mode via /api/health ----
+(async function detectMode(){
+  const badge=document.getElementById("modebadge");
+  try{
+    const r=await fetch("/api/health"); const h=await r.json();
+    if(h.pricing) PRICING=h.pricing; if(h.bundle) BUNDLE=h.bundle; if(h.novelty_price) NOVELTY_PRICE=h.novelty_price;
+    if(h.ai_enabled){ AI_ENABLED=true; badge.className="modebadge ai"; badge.innerHTML=`<span class="dot"></span>AI mode · ${esc(h.model)}`; }
+    else { badge.className="modebadge"; badge.innerHTML=`<span class="dot"></span>offline · keyword matcher (no API key)`; }
+  }catch(e){
+    DEMO=true;
+    badge.className="modebadge"; badge.innerHTML=`<span class="dot"></span>demo · static preview`;
+  }
+})();
+</script>
+</body>
+</html>
