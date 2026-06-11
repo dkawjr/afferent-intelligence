@@ -44,7 +44,9 @@ def collect() -> tuple[list[dict], dict, dict, object]:
     ]
     mpath = ROOT / "examples" / "manifest.json"
     example = json.loads(mpath.read_text(encoding="utf-8")) if mpath.exists() else None
-    return entries, dict(ALIAS_TABLE), dict(inv.scope), example
+    dpath = ROOT / "datasets.json"
+    datasets = json.loads(dpath.read_text(encoding="utf-8"))["datasets"] if dpath.exists() else []
+    return entries, dict(ALIAS_TABLE), dict(inv.scope), example, datasets
 
 
 TEMPLATE = r"""<!doctype html>
@@ -303,6 +305,25 @@ TEMPLATE = r"""<!doctype html>
   .na-appears_novel{background:var(--green-bg);border:1px solid var(--green-line);color:#14532d}
   .na-uncertain{background:var(--slate-bg);border:1px solid var(--slate-line);color:#334155}
 
+  /* researcher insights */
+  .vprofile{display:flex;align-items:center;gap:11px;background:var(--green-bg);border:1px solid var(--green-line);border-radius:12px;padding:11px 14px;margin-top:12px}
+  .vprofile .vn{font-weight:650;font-size:14.5px}
+  .vprofile .vmeta{font-size:12.5px;color:var(--muted);margin-top:1px}
+  .vok{font-size:11px;font-weight:700;color:#fff;background:var(--green);border-radius:999px;padding:4px 10px;white-space:nowrap}
+  .topicchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+  .topicchip{font-size:12px;background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;border-radius:999px;padding:3px 11px}
+  .recgrid{display:grid;gap:10px;margin-top:4px}
+  .reccard{border:1px solid var(--line);border-radius:14px;background:#fbfdfe;padding:13px 15px}
+  .reccard .rh{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .reccard .rn{font-weight:680;font-size:15px}
+  .fitbadge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:.03em}
+  .fit-strong{background:var(--green-bg);color:var(--green);border:1px solid var(--green-line)}
+  .fit-moderate{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-line)}
+  .fit-exploratory{background:var(--slate-bg);color:var(--slate);border:1px solid var(--slate-line)}
+  .reccard .racc{margin-left:auto;font-size:11.5px;color:var(--muted)}
+  .reccard .rw{font-size:13px;color:#334155;margin-top:6px;line-height:1.45}
+  .reccard .rlit{margin-top:9px;border-top:1px dashed var(--line);padding-top:8px;display:grid;gap:3px}
+
   /* ===================== Apple-esque refinement ===================== */
   :root{
     --bg:#fbfbfd; --card:#ffffff; --ink:#1d1d1f; --muted:#6e6e73; --line:#e4e4e9;
@@ -456,6 +477,20 @@ TEMPLATE = r"""<!doctype html>
     </div>
   </div>
 
+  <details class="card" id="researchcard">
+    <summary>For researchers — get verified &amp; personalized <span class="countbadge" id="verchip" style="display:none">✓</span></summary>
+    <div class="inner">
+      <div style="font-size:13.5px;color:var(--muted)">Verify with your ORCID to get dataset recommendations, knowledge-base gaps, relevant literature, and collaboration advice tuned to your work. ORCID is verified via its public API; Google Scholar is an optional link.</div>
+      <div class="ff" style="margin-top:12px">
+        <div class="f"><label>ORCID iD</label><input type="text" id="orcid" placeholder="0000-0000-0000-0000"></div>
+        <div class="f"><label>Google Scholar URL (optional)</label><input type="text" id="scholar" placeholder="https://scholar.google.com/citations?user=…"></div>
+        <div class="f full"><label>Research interests (optional)</label><input type="text" id="interests" placeholder="e.g. intraoperative hemodynamics, AKI prediction, ICU sepsis"></div>
+      </div>
+      <div class="tkbtns"><button class="btn-pay" id="verifybtn">Verify &amp; personalize</button></div>
+      <div id="profileres"></div>
+    </div>
+  </details>
+
   <details class="card" id="ideascard" style="display:none">
     <summary>My ideas <span class="countbadge" id="ideacount">0</span></summary>
     <div class="inner" id="ideasbody"></div>
@@ -525,6 +560,14 @@ const NOVELTY_EXAMPLE = [
   {title:"Intraoperative hypotension and postoperative acute kidney injury: A systematic review", journal:"American Journal of Surgery", year:"2024", pmid:"38040526", url:"https://pubmed.ncbi.nlm.nih.gov/38040526/"},
   {title:"Intraoperative hypotension and the risk of postoperative adverse outcomes: a systematic review", journal:"British Journal of Anaesthesia", year:"2018", pmid:"30236233", url:"https://pubmed.ncbi.nlm.nih.gov/30236233/"}
 ];
+const DATASETS = /*__DATASETS__*/;
+const GAPS_ABSENT = ENTRIES.filter(e=>e.status==="CONFIRMED_ABSENT").map(e=>e.name+" — not recorded in VitalDB; needs a dataset with ward or post-discharge follow-up.");
+const COLLAB_GENERIC = [
+  "Pair clinical domain expertise with a methods/statistics collaborator before locking the analysis plan.",
+  "Find a co-author who already holds credentialed access (e.g. PhysioNet) for datasets that require it.",
+  "Post the question in the dataset's community (PhysioNet forums, dataset listserv) to surface prior or parallel work."
+];
+const ORCID_RE=/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/;
 
 // ---- next-steps checklist (what to do after a question is feasible) ----
 const CHECKLIST = [
@@ -1023,7 +1066,7 @@ async function runQuery(q){
 }
 
 // ---- dataset profile card ----
-function renderProfile(){
+function renderDatasetProfile(){
   const s=SCOPE||{};
   const rows=[
     ["Center", s.center||"Seoul National University Hospital (single center)"],
@@ -1042,6 +1085,75 @@ function renderProfile(){
   document.getElementById("profilebody").innerHTML=h;
 }
 
+// ---- researcher verification + personalized insights ----
+async function orcidClient(orcid){
+  const r=await fetch(`https://pub.orcid.org/v3.0/${orcid}/record`,{headers:{Accept:"application/json"}});
+  if(!r.ok) throw new Error("orcid"); const d=await r.json();
+  const nm=(d.person&&d.person.name)||{};
+  const name=[(nm["given-names"]||{}).value,(nm["family-name"]||{}).value].filter(Boolean).join(" ")||null;
+  const groups=(((d["activities-summary"]||{}).works||{}).group)||[];
+  const works=[],seen=new Set();
+  for(const g of groups){ const ws=g["work-summary"]||[]; const t=ws[0]&&ws[0].title&&ws[0].title.title&&ws[0].title.title.value; if(t&&!seen.has(t)){seen.add(t);works.push(t);} }
+  return {name,works:works.slice(0,30)};
+}
+function detInsights(works,interests){
+  const text=(works.join(" ")+" "+interests).toLowerCase();
+  const scored=DATASETS.map(d=>({d,score:d.tags.reduce((s,t)=>s+(text.includes(t)?1:0),0)})).sort((a,b)=>b.score-a.score);
+  const datasets=scored.slice(0,4).map(({d,score})=>({name:d.name,fit:score>=3?"strong":(score>=1?"moderate":"exploratory"),why:d.strengths,access:d.access}));
+  const topics=[...new Set(DATASETS.flatMap(d=>d.tags))].filter(t=>text.includes(t)).slice(0,8);
+  return {topics,datasets,gaps:GAPS_ABSENT.slice(0,4),collaboration:COLLAB_GENERIC,literature:[],ai:false};
+}
+async function verifyPersonalize(){
+  const orcid=(document.getElementById("orcid").value||"").trim().replace("https://orcid.org/","").replace(/\/$/,"");
+  const scholar=(document.getElementById("scholar").value||"").trim();
+  const interests=(document.getElementById("interests").value||"").trim();
+  const box=document.getElementById("profileres");
+  box.innerHTML=`<div class="helper" style="margin-top:12px"><span class="spinner"></span> Verifying &amp; personalizing…</div>`;
+  let profile={};
+  try{
+    if(!DEMO){
+      const r=await fetch("/api/verify",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({orcid,scholar_url:scholar})});
+      profile=await r.json();
+    } else if(ORCID_RE.test(orcid)){
+      const o=await orcidClient(orcid); profile={verified:true,orcid,name:o.name,works:o.works,scholar_url:scholar||null};
+    } else if(scholar){ profile={verified:false,scholar_url:scholar,note:"Google Scholar linked — add an ORCID iD for verified status."};
+    } else { profile={error:"Provide an ORCID iD (0000-0000-0000-0000) or a Google Scholar URL."}; }
+  }catch(e){ profile={error:"Verification failed — double-check the ORCID iD."}; }
+  if(profile.error){ box.innerHTML=`<div class="helper" style="margin-top:12px">${esc(profile.error)}</div>`; return; }
+  const works=profile.works||[];
+  let ins;
+  if(!DEMO && (works.length||interests)){
+    try{ const r=await fetch("/api/profile",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({works,interests})}); ins=await r.json(); if(ins.error) ins=detInsights(works,interests); }
+    catch(e){ ins=detInsights(works,interests); }
+  } else { ins=detInsights(works,interests); }
+  saveProfile(profile,ins,interests);
+  renderProfile(box,profile,ins);
+}
+function renderProfile(box,profile,ins){
+  ins=ins||{}; let h="";
+  if(profile.verified){ h+=`<div class="vprofile"><span class="vok">✓ Verified</span><div><div class="vn">${esc(profile.name||"Researcher")}</div><div class="vmeta">ORCID ${esc(profile.orcid)} · ${(profile.works||[]).length} works${profile.scholar_url?" · Scholar linked":""}</div></div></div>`; }
+  else { h+=`<div class="helper" style="margin-top:12px">${esc(profile.note||"Linked (unverified). Add an ORCID iD for a verified badge.")}</div>`; }
+  if(ins.topics&&ins.topics.length){ h+=`<div class="seclabel">Your topics <span class="tagchip ${ins.ai?"tag-ai":"tag-guide"}">${ins.ai?"AI-inferred":"keyword-matched"}</span></div><div class="topicchips">${ins.topics.map(t=>`<span class="topicchip">${esc(t)}</span>`).join("")}</div>`; }
+  const litByDs={}; (ins.literature||[]).forEach(l=>litByDs[l.dataset]=l.articles);
+  if(ins.datasets&&ins.datasets.length){
+    h+=`<div class="seclabel">Recommended datasets <span class="tagchip tag-verified">catalog facts + match</span></div><div class="recgrid">`;
+    for(const d of ins.datasets){
+      h+=`<div class="reccard"><div class="rh"><span class="rn">${esc(d.name)}</span><span class="fitbadge fit-${d.fit}">${esc(d.fit)} fit</span><span class="racc">${esc(d.access)}</span></div><div class="rw">${esc(d.why)}</div>`;
+      const arts=litByDs[d.name];
+      if(arts&&arts.length){ h+=`<div class="rlit"><div style="font-size:11.5px;color:var(--muted)">Recent work in your area:</div>`+arts.map(a=>`<div><a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.title)}</a> <span style="color:var(--muted);font-size:11.5px">(${esc(a.journal)}, ${esc(a.year)})</span></div>`).join("")+`</div>`; }
+      h+=`</div>`;
+    }
+    h+=`</div>`;
+  }
+  if(ins.gaps&&ins.gaps.length){ h+=`<div class="seclabel">Knowledge-base gaps <span class="tagchip ${ins.ai?"tag-ai":"tag-guide"}">${ins.ai?"AI-inferred":"from inventory"}</span></div><ul class="checklist">${ins.gaps.map(g=>`<li><span>${esc(g)}</span></li>`).join("")}</ul>`; }
+  if(ins.collaboration&&ins.collaboration.length){ h+=`<div class="seclabel">Collaboration advice <span class="tagchip tag-ai">advice</span></div><ul class="checklist">${ins.collaboration.map(c=>`<li><span>${esc(c)}</span></li>`).join("")}</ul>`; }
+  if(DEMO){ h+=`<div style="margin-top:10px;font-size:11.5px;color:var(--muted)">Demo: ORCID verification is live; recommendations use keyword matching. With the backend, the model tailors recommendations and pulls live PubMed literature per dataset.</div>`; }
+  box.innerHTML=h;
+  const vc=document.getElementById("verchip"); if(profile.verified&&vc){ vc.style.display="inline-block"; vc.textContent="✓ "+(profile.name?profile.name.split(" ").slice(-1)[0]:"verified"); }
+}
+function saveProfile(profile,ins,interests){ try{ localStorage.setItem("afferent_profile",JSON.stringify({profile,ins,interests})); }catch(e){} }
+function restoreProfile(){ try{ const s=JSON.parse(localStorage.getItem("afferent_profile")); if(s&&s.profile){ renderProfile(document.getElementById("profileres"),s.profile,s.ins||{}); if(s.profile.orcid) document.getElementById("orcid").value=s.profile.orcid; if(s.interests) document.getElementById("interests").value=s.interests; } }catch(e){} }
+
 // ---- wire up ----
 const qEl=document.getElementById("q");
 document.getElementById("run").addEventListener("click",()=>{const v=qEl.value.trim(); if(v) runQuery(v);});
@@ -1049,8 +1161,10 @@ qEl.addEventListener("keydown",e=>{if((e.metaKey||e.ctrlKey)&&e.key==="Enter"){c
 const exWrap=document.getElementById("examples");
 for(const ex of EXAMPLES){const c=document.createElement("span");c.className="chip";c.textContent=ex;c.addEventListener("click",()=>{qEl.value=ex;runQuery(ex);});exWrap.appendChild(c);}
 document.getElementById("ic").textContent=ENTRIES.length;
-renderProfile();
+renderDatasetProfile();
 renderIdeas();
+document.getElementById("verifybtn").addEventListener("click",verifyPersonalize);
+restoreProfile();
 
 // ---- idea discussion mode ----
 const DMSGS=[];
@@ -1107,16 +1221,17 @@ document.getElementById("dinput").addEventListener("keydown",e=>{ if(e.key==="En
 
 
 def main() -> int:
-    entries, aliases, scope, example = collect()
+    entries, aliases, scope, example, datasets = collect()
     html = (
         TEMPLATE
         .replace("/*__ENTRIES__*/", json.dumps(entries, ensure_ascii=False))
         .replace("/*__ALIASES__*/", json.dumps(aliases, ensure_ascii=False))
         .replace("/*__SCOPE__*/", json.dumps(scope, ensure_ascii=False))
         .replace("/*__EXAMPLE__*/", json.dumps(example, ensure_ascii=False))
+        .replace("/*__DATASETS__*/", json.dumps(datasets, ensure_ascii=False))
     )
     OUT.write_text(html, encoding="utf-8")
-    print(f"wrote {OUT.name} ({len(html):,} bytes) - {len(entries)} concepts, example={'yes' if example else 'no'}")
+    print(f"wrote {OUT.name} ({len(html):,} bytes) - {len(entries)} concepts, {len(datasets)} datasets")
     return 0
 
 

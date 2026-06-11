@@ -1,0 +1,115 @@
+{
+  "description": "Curated catalog of biomedical research datasets Afferent can reason about. Facts (access, scope, modality) are verified; matching to a researcher is inference.",
+  "datasets": [
+    {
+      "id": "vitaldb", "name": "VitalDB",
+      "domain": ["perioperative", "anesthesiology", "intraoperative monitoring", "hemodynamics"],
+      "tags": ["anesthesia", "surgery", "intraoperative", "hypotension", "blood pressure", "eeg", "bis", "vital signs", "waveform", "perioperative", "depth of anesthesia", "cardiac output"],
+      "modality": "High-resolution intraoperative waveforms + numerics, per-case clinical table, ±90-day labs, in-hospital outcomes",
+      "access": "Open (no credentialing for the open subset)",
+      "n": "~6,388 surgical cases", "center": "Single-center (Seoul National University Hospital)",
+      "strengths": "Beat-to-beat physiology (BIS/EEG, arterial waveform, cardiac output) at a resolution few datasets match.",
+      "gaps": "No ward course, no post-discharge follow-up, single-center; structured outcomes like delirium/POCD/30-day mortality are absent.",
+      "pubmed": "VitalDB", "url": "https://vitaldb.net"
+    },
+    {
+      "id": "mimic_iv", "name": "MIMIC-IV",
+      "domain": ["critical care", "icu", "emergency medicine", "clinical prediction"],
+      "tags": ["icu", "critical care", "sepsis", "mortality", "mechanical ventilation", "vasopressor", "lab", "ehr", "intensive care", "acute kidney injury", "length of stay"],
+      "modality": "De-identified ICU + ED EHR: vitals, labs, meds, notes, billing, outcomes",
+      "access": "Credentialed (PhysioNet + CITI human-subjects training + DUA)",
+      "n": "~300,000 admissions", "center": "Single-center (BIDMC, Boston)",
+      "strengths": "Rich longitudinal ICU course with outcomes, labs, meds, and clinical notes; the workhorse for ICU ML.",
+      "gaps": "No high-frequency waveforms (see MIMIC-IV-WDB / matched waveform subset); single-center; US ICU case-mix.",
+      "pubmed": "MIMIC-IV", "url": "https://physionet.org/content/mimiciv/"
+    },
+    {
+      "id": "eicu", "name": "eICU-CRD",
+      "domain": ["critical care", "icu", "multicenter"],
+      "tags": ["icu", "critical care", "sepsis", "mortality", "multicenter", "tele-icu", "apache", "ventilation"],
+      "modality": "Multi-center ICU EHR (208 US hospitals): vitals, labs, diagnoses, treatments, APACHE",
+      "access": "Credentialed (PhysioNet + training + DUA)",
+      "n": "~200,000 ICU stays", "center": "Multi-center (US)",
+      "strengths": "Multi-center generalizability for ICU prediction; good for external validation of MIMIC models.",
+      "gaps": "Coarser granularity than MIMIC; no notes; no high-frequency waveforms.",
+      "pubmed": "eICU collaborative research database", "url": "https://physionet.org/content/eicu-crd/"
+    },
+    {
+      "id": "hirid", "name": "HiRID",
+      "domain": ["critical care", "icu", "high-resolution"],
+      "tags": ["icu", "critical care", "high-resolution", "circulatory failure", "vasopressor", "physiology"],
+      "modality": "High-resolution ICU data (~2-min resolution) for ~33,000 admissions",
+      "access": "Credentialed (PhysioNet + DUA)",
+      "n": "~33,000 ICU admissions", "center": "Single-center (Bern, Switzerland)",
+      "strengths": "Higher temporal resolution than MIMIC/eICU for circulatory-failure and early-warning work.",
+      "gaps": "Single-center European ICU; smaller; no notes.",
+      "pubmed": "HiRID intensive care", "url": "https://physionet.org/content/hirid/"
+    },
+    {
+      "id": "mover", "name": "MOVER",
+      "domain": ["perioperative", "anesthesiology", "surgical outcomes"],
+      "tags": ["perioperative", "surgery", "anesthesia", "intraoperative", "outcomes", "ehr", "vitals"],
+      "modality": "Perioperative EHR + intraoperative vitals for ~58,000 surgical patients",
+      "access": "Open with registration / data use agreement",
+      "n": "~58,000 surgeries", "center": "Single-center (UC Irvine)",
+      "strengths": "Large perioperative cohort linking intraoperative data to EHR outcomes — a complement/scale-up to VitalDB.",
+      "gaps": "Lower waveform fidelity than VitalDB; single-center US.",
+      "pubmed": "MOVER perioperative", "url": "https://mover.ics.uci.edu/"
+    },
+    {
+      "id": "nhanes", "name": "NHANES",
+      "domain": ["public health", "epidemiology", "nutrition"],
+      "tags": ["epidemiology", "population", "survey", "nutrition", "obesity", "diabetes", "cardiovascular", "biomarkers", "mortality", "public health"],
+      "modality": "Nationally representative US survey: exams, labs, questionnaires, mortality linkage",
+      "access": "Open (CDC, public)",
+      "n": "~5,000/year, decades of cycles", "center": "US national sample",
+      "strengths": "Population-representative exposures/biomarkers with mortality linkage — gold standard for US epi.",
+      "gaps": "Cross-sectional cycles (limited longitudinal); self-report measures; no clinical course.",
+      "pubmed": "NHANES", "url": "https://www.cdc.gov/nchs/nhanes/"
+    },
+    {
+      "id": "brfss", "name": "BRFSS",
+      "domain": ["public health", "epidemiology", "behavioral health"],
+      "tags": ["epidemiology", "survey", "behavioral", "risk factors", "chronic disease", "public health", "population"],
+      "modality": "Annual US telephone survey of health behaviors and conditions",
+      "access": "Open (CDC, public)",
+      "n": "~400,000/year", "center": "US states",
+      "strengths": "Huge, geographically resolved behavioral-risk surveillance for population health.",
+      "gaps": "All self-report; no biomarkers or clinical data.",
+      "pubmed": "BRFSS behavioral risk factor", "url": "https://www.cdc.gov/brfss/"
+    },
+    {
+      "id": "abcd", "name": "ABCD Study",
+      "domain": ["pediatrics", "neuroscience", "development", "psychiatry"],
+      "tags": ["pediatric", "adolescent", "brain", "neuroimaging", "mri", "development", "cognition", "substance use", "mental health", "longitudinal"],
+      "modality": "Longitudinal adolescent brain development: MRI, cognition, mental health, substance use, genetics",
+      "access": "Controlled access (NIMH Data Archive application)",
+      "n": "~11,800 children, longitudinal", "center": "Multi-site (US)",
+      "strengths": "The premier longitudinal adolescent neurodevelopment cohort with imaging + behavior + genetics.",
+      "gaps": "Access requires an approved NDA application; complex multilevel structure; not clinical-care data.",
+      "pubmed": "Adolescent Brain Cognitive Development ABCD", "url": "https://abcdstudy.org/"
+    },
+    {
+      "id": "hbn", "name": "Healthy Brain Network",
+      "domain": ["pediatrics", "psychiatry", "neuroscience"],
+      "tags": ["pediatric", "child", "psychiatry", "mental health", "mri", "eeg", "neuroimaging", "phenotyping"],
+      "modality": "Pediatric mental-health phenotyping: MRI, EEG, cognitive/behavioral assessments",
+      "access": "Open with data use agreement",
+      "n": "~5,000+ children", "center": "Multi-site (NYC area)",
+      "strengths": "Deep transdiagnostic pediatric phenotyping with imaging + EEG; relatively accessible.",
+      "gaps": "Help-seeking sample (not population-representative); cross-sectional.",
+      "pubmed": "Healthy Brain Network", "url": "https://healthybrainnetwork.org/"
+    },
+    {
+      "id": "ukbiobank", "name": "UK Biobank",
+      "domain": ["epidemiology", "genetics", "imaging", "chronic disease"],
+      "tags": ["genetics", "genomics", "imaging", "mri", "cardiovascular", "cancer", "biomarkers", "longitudinal", "population", "gwas", "biobank"],
+      "modality": "500k-participant biobank: genotyping, imaging, biomarkers, linked health records",
+      "access": "Application + access fee (approved research)",
+      "n": "~500,000 participants", "center": "UK national cohort",
+      "strengths": "Genetics + imaging + longitudinal linkage at scale — unmatched for gene-environment and risk-prediction work.",
+      "gaps": "Healthy-volunteer bias; application + fee; UK population.",
+      "pubmed": "UK Biobank", "url": "https://www.ukbiobank.ac.uk/"
+    }
+  ]
+}

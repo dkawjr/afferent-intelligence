@@ -28,7 +28,9 @@ the frontend falls back to its built-in keyword matcher, so the page still works
 
 from __future__ import annotations
 
+import json
 import os
+import re
 import zlib
 from pathlib import Path
 from typing import Literal, Optional
@@ -98,6 +100,14 @@ CONFIRMED_OUTCOMES = [
 INVENTORY_LINES = "\n".join(
     f"{e.id} | {e.name} | {e.status.value} | {e.category}" for e in INV.variables
 )
+
+DATASETS = json.loads((ROOT / "datasets.json").read_text(encoding="utf-8"))["datasets"]
+CATALOG_TEXT = "\n".join(
+    f"- {d['name']} | domains: {', '.join(d['domain'])} | {d['modality']} | access: {d['access']} "
+    f"| strengths: {d['strengths']} | gaps: {d['gaps']}"
+    for d in DATASETS
+)
+ABSENT_GAPS = [v.name for v in INV.variables if v.status.value == "CONFIRMED_ABSENT"]
 
 SYSTEM_PROMPT = f"""You are the DECOMPOSE step of Afferent Intelligence, a research-feasibility \
 triage engine for the VitalDB dataset. VitalDB is a single-center (Seoul National University \
@@ -525,6 +535,144 @@ def scope_file(run_id: str, fname: str):
     if not str(target).startswith(str(base)) or not target.is_file():
         return JSONResponse({"error": "not found"}, status_code=404)
     return FileResponse(target)
+
+
+# ---------------------------------------------------------------------------
+# Researcher verification (ORCID public API) + personalized insights.
+# ---------------------------------------------------------------------------
+ORCID_RE = re.compile(r"^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$")
+
+
+def _orcid_record(orcid: str) -> dict:
+    import urllib.request
+
+    req = urllib.request.Request(
+        f"https://pub.orcid.org/v3.0/{orcid}/record",
+        headers={"Accept": "application/json", "User-Agent": "afferent-intelligence"},
+    )
+    with urllib.request.urlopen(req, timeout=12) as r:
+        return json.loads(r.read())
+
+
+@app.post("/api/verify")
+def verify(payload: dict) -> JSONResponse:
+    orcid = (payload or {}).get("orcid", "").strip().replace("https://orcid.org/", "").strip("/")
+    scholar = (payload or {}).get("scholar_url", "").strip()
+    out = {"verified": False, "orcid": None, "name": None, "works": [], "scholar_url": scholar or None}
+    if ORCID_RE.match(orcid):
+        try:
+            rec = _orcid_record(orcid)
+            nm = (rec.get("person") or {}).get("name") or {}
+            given = (nm.get("given-names") or {}).get("value", "")
+            family = (nm.get("family-name") or {}).get("value", "")
+            groups = (((rec.get("activities-summary") or {}).get("works") or {}).get("group")) or []
+            works, seen = [], set()
+            for g in groups:
+                ws = (g.get("work-summary") or [])
+                t = ((ws[0].get("title") if ws else {}) or {}).get("title", {}) if ws else {}
+                title = (t or {}).get("value")
+                if title and title not in seen:
+                    seen.add(title)
+                    works.append(title)
+            out.update({"verified": True, "orcid": orcid,
+                        "name": (f"{given} {family}".strip() or None), "works": works[:30]})
+        except Exception as exc:  # noqa: BLE001
+            out["error"] = f"Could not retrieve ORCID record ({type(exc).__name__})."
+    elif scholar:
+        out["note"] = "Google Scholar linked — not independently verified. Add an ORCID iD for verified status."
+    else:
+        out["error"] = "Provide an ORCID iD (0000-0000-0000-0000) or a Google Scholar URL."
+    return JSONResponse(out)
+
+
+class DatasetRec(BaseModel):
+    name: str
+    fit: Literal["strong", "moderate", "exploratory"]
+    why: str
+    access: str
+
+
+class ProfileInsights(BaseModel):
+    topics: list[str]
+    datasets: list[DatasetRec]
+    gaps: list[str]
+    collaboration: list[str]
+
+
+def _det_insights(works: list[str], interests: str) -> dict:
+    text = (" ".join(works) + " " + interests).lower()
+    scored = sorted(
+        ((sum(1 for t in d["tags"] if t in text), d) for d in DATASETS),
+        key=lambda x: -x[0],
+    )
+    recs = []
+    for score, d in scored[:4]:
+        fit = "strong" if score >= 3 else ("moderate" if score >= 1 else "exploratory")
+        recs.append({"name": d["name"], "fit": fit, "why": d["strengths"], "access": d["access"]})
+    topics = [t for t in dict.fromkeys(t for d in DATASETS for t in d["tags"]) if t in text][:8]
+    gaps = [f"{g} is not recorded in VitalDB — needs a dataset with ward/post-discharge follow-up." for g in ABSENT_GAPS][:4]
+    collab = [
+        "Pair clinical domain expertise with a methods/stats collaborator before locking the analysis plan.",
+        "Find a co-author who already holds credentialed access (e.g. PhysioNet) for datasets that require it.",
+        "Post the question in the dataset's community (PhysioNet forums, dataset Slack/listserv) to surface prior/parallel work.",
+    ]
+    return {"topics": topics, "datasets": recs, "gaps": gaps, "collaboration": collab}
+
+
+def _ai_insights(works: list[str], interests: str) -> Optional[dict]:
+    if not _ai_enabled():
+        return None
+    try:
+        import anthropic
+
+        sys = (
+            "You advise a biomedical researcher on datasets, knowledge gaps, and collaboration. Use ONLY "
+            "the dataset catalog below for dataset facts (names, access, scope) — never invent a dataset or "
+            "misstate access. Recommend the best-fit datasets for their work with a one-line 'why', flag "
+            "knowledge gaps (questions in their area that a given dataset cannot answer, and which dataset "
+            "would), and give concrete collaboration advice (what expertise/role to seek and where — not "
+            "specific named people). Be specific and calibrated.\n\n"
+            f"DATASET CATALOG:\n{CATALOG_TEXT}\n\n"
+            f"VitalDB does NOT collect: {', '.join(ABSENT_GAPS)}."
+        )
+        client = anthropic.Anthropic()
+        resp = client.messages.parse(
+            model=MODEL,
+            max_tokens=2200,
+            system=[{"type": "text", "text": sys, "cache_control": {"type": "ephemeral"}}],
+            messages=[{"role": "user", "content":
+                       f"Researcher publications:\n- " + "\n- ".join(works[:30]) +
+                       (f"\n\nStated interests: {interests}" if interests else "")}],
+            output_format=ProfileInsights,
+        )
+        return resp.parsed_output.model_dump()
+    except Exception:  # noqa: BLE001
+        return None
+
+
+@app.post("/api/profile")
+def profile(payload: dict) -> JSONResponse:
+    works = (payload or {}).get("works", []) or []
+    interests = (payload or {}).get("interests", "") or ""
+    if not works and not interests:
+        return JSONResponse({"error": "No publications or interests to personalize from."}, status_code=400)
+
+    ins = _ai_insights(works, interests) or _det_insights(works, interests)
+
+    # Literature: for the top 2 recommended datasets, pull related work on the researcher's top topic.
+    topic = (ins.get("topics") or [interests])[0] if (ins.get("topics") or interests) else ""
+    by_name = {d["name"]: d for d in DATASETS}
+    lit = []
+    for rec in ins["datasets"][:2]:
+        d = by_name.get(rec["name"])
+        if not d:
+            continue
+        q = f'"{d["pubmed"]}"' + (f' AND "{topic}"' if topic else "")
+        arts = _pubmed_search(q, 3)
+        if arts:
+            lit.append({"dataset": d["name"], "articles": arts})
+
+    return JSONResponse({**ins, "literature": lit, "ai": _ai_enabled()})
 
 
 @app.get("/")
